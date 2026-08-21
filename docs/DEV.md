@@ -65,6 +65,22 @@ git push gitcode main --tags
 - [ ] WorkBuddy SkillHub 提交（需过 skill-vetter，预填 INSTALL.md §6 安全声明）
 - [ ] InsCode 官方市场仓 PR（`community + inline` vendor 形态，依赖 CSDN 内部渠道）
 
-## 实测支持矩阵
+## 实测支持矩阵（2026-08-21 T9 真机验收）
 
-真机验收矩阵见计划文档 T9（9 工具 × ① AI 自装 ② 人工兜底 ③ 触发冒烟）；验收结果回填本节，所有宣称以实测为准。
+验收口径：① AI 自装（粘贴链接/命令安装）② 人工兜底（install.sh / install.ps1 / 复制）③ 触发冒烟（意图预分类 + 引擎判定端到端 5/5 通过：正例触发、反例压制）。引擎级冒烟对全部工具通用（同一引擎 guide_gate.py）。
+
+| # | 工具 | ① AI 自装 | ② 人工兜底 | ③ 触发冒烟 | 备注 |
+|---|---|---|---|---|---|
+| 1 | Claude Code | ✅ 实测 | ✅ 实测 | ✅ | install.sh/install.ps1 安装后**即时加载**（会话内技能注入验证）；npx skills 建链通道实测 |
+| 2 | Codex | ✅ 实测 | ✅ 实测 | ✅ | install.sh → `~/.agents/skills`；npx skills universal（Codex 认 universal 目录） |
+| 3 | Cursor | ✅ 实测 | ✅ 实测 | ✅ | npx skills universal 覆盖 Cursor；install.ps1 → `~/.cursor/skills` |
+| 4 | Kimi Code | ⚠️ 未装真机 | ✅ 通道就绪 | ✅ | `~/.kimi-code/skills` 已入安装器；whenToUse 字段已加（Kimi 规范字段）；unknown 字段解析行为待真机确认 |
+| 5 | OpenClaw | ⚠️ 未装真机 | ✅ 通道就绪 | ✅ | `openclaw skills install git:...` 命令形态见 INSTALL.md；目录通道入安装器 |
+| 6 | WorkBuddy | ✅ 实测 | ✅ 实测 | ✅ | install.sh/install.ps1 → `~/.workbuddy/skills`；zip 已更新为当前版；应用内 Git/ZIP 导入动作待补测 |
+| 7 | TRAE (CN) | ✅ 实测 | ✅ 实测 | ✅ | npx skills 建 Trae CN 符号链接实测；install.ps1 → `~/.trae-cn/skills` |
+| 8 | InsCode Desktop | ⚠️ 依赖 CSDN 内部渠道 | ✅ .skill 可导入 | ✅ | AtomCode 规范 `.atomcode-plugin/marketplace.json` 已生成双份；客户端读取目录实测待上架后补 |
+| 9 | GitHub Copilot | ✅ 实测 | — | ✅ | npx skills universal 覆盖 Copilot（+12 工具） |
+
+**实测环境**：Windows 11 + Git Bash + PowerShell 5.1；npx skills 版本为安装时最新。
+**待补测项（诚实披露）**：① `gh skill install` 需 GitHub 登录态（本机 gh 未登录）；② Kimi/OpenClaw/InsCode 未安装，其命令形态与 frontmatter 解析（含 `allowed-tools: Bash(python3:*)` 未知字段行为）待真机；③ WorkBuddy 应用内 ZIP/Git 导入动作；④ InsCode 客户端对 `.atomcode-plugin` vs `.claude-plugin` 的读取需上架后实测定唯一正解（当前两者并存，README 以 AtomCode 为主通道声明）。
+**T9 修复回环**：install.ps1 两处真机 bug 已修（npx skills 建 Junction 后 `Remove-Item -Recurse` 残留叶子 → 改 `LinkType` 判定只删链接本体；`Copy-Item "src\*"` 目标不存在时 PS5.1 误当叶子 → 先 `New-Item -ItemType Directory`）。

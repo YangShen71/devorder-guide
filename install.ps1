@@ -56,7 +56,12 @@ foreach ($t in $selected) {
     }
     $dst = Join-Path $dir "devorder-guide"
     if ($DryRun) { Write-Host "      [dry] 将安装到 $dst" -ForegroundColor DarkGray; continue }
-    if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }   # 清空旧版再复制，防残留文件（幂等）
+    if (Test-Path $dst) {
+        $it = Get-Item $dst -Force
+        if ($it.LinkType) { $it.Delete() }        # Junction/Symlink（npx skills 等建链场景）：只删链接本体，不递归目标内容；Remove-Item -Recurse 会跟随链接删目标且残留叶子
+        else { Remove-Item -Recurse -Force $dst } # 普通目录：递归清空（幂等）
+    }
+    New-Item -ItemType Directory -Force $dst | Out-Null   # 先建目录：dst 不存在时 Copy-Item 通配符源会误当叶子目标报错（PS 5.1 坑）
     Copy-Item -Recurse -Force (Join-Path $pkg "*") $dst
     Get-ChildItem -Path $dst -Directory -Recurse -Force | Where-Object { $_.Name -in @("__pycache__", ".pytest_cache", ".ruff_cache") } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue   # 清缓存，保证安装版 = .skill 解压版
     $installed += "$t -> $dst"

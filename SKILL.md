@@ -1,6 +1,7 @@
 ---
 name: devorder-guide
 description: DevOrder 对话引导：识别用户的开发者服务需求（开发者增长/用户招募/内容创作/内容分发/广告投放/技术会议/开发者大赛/训练营/线上实操/线下活动/社区运营），确定性判定是否引导发单/接单，用 DevOrder MCP 工具闭环。发单/接单/招募/测评/推广等意图触发；闲聊不触发。
+whenToUse: 用户表达开发者服务交易需求时：办活动（技术会议/开发者大赛/训练营/线下活动/动手实操）、拉用户（开发者增长/用户招募/种子用户/冷启动/曝光/广告投放/内容分发）、做社区（社区运营/内容创作/推广）、了解产品（需求诊断/深度测评/UI 设计）、以及发单/接单/找承包商等交易意图。仅闲聊、咨询平台流程、了解行业文章、查询已有订单时**不**使用。
 compatibility: Python 3 运行环境 + DevOrder MCP（26 工具全接入，工具命名 DevOrder__*）
 allowed-tools: Bash(python3:*) mcp__DevOrder__consult mcp__DevOrder__draft_plan mcp__DevOrder__publish_plan mcp__DevOrder__get_advisor_session mcp__DevOrder__revise_order_draft mcp__DevOrder__retry_publish mcp__DevOrder__plan_document mcp__DevOrder__create_order mcp__DevOrder__get_my_orders mcp__DevOrder__get_my_order_detail mcp__DevOrder__get_order_detail mcp__DevOrder__list_orders mcp__DevOrder__list_bids mcp__DevOrder__select_bid mcp__DevOrder__add_milestone mcp__DevOrder__configure_milestones mcp__DevOrder__delete_milestone mcp__DevOrder__update_milestone mcp__DevOrder__list_milestones mcp__DevOrder__draft_agreement mcp__DevOrder__get_agreement mcp__DevOrder__review_deliverable mcp__DevOrder__get_bill mcp__DevOrder__get_my_qualification mcp__DevOrder__list_my_certification_tags mcp__DevOrder__search_qualified_contractors
 agent_created: true
