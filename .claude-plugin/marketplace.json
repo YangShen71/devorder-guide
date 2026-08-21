@@ -1,0 +1,14 @@
+{
+  "name": "devorder-guide-marketplace",
+  "owner": {
+    "name": "<owner>",
+    "email": "<email>"
+  },
+  "plugins": [
+    {
+      "name": "devorder-guide",
+      "source": "./plugins/devorder-guide",
+      "version": "0.5.26"
+    }
+  ]
+}
