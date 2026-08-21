@@ -1,0 +1,620 @@
+{
+  "meta": {
+    "source": "devorder-guide-workspace",
+    "restored": "2026-08-05",
+    "note": "scenario_summary 为场景摘要（21~48 字），非完整 subagent 提示词；原始提示词未在 workspace 保留（2026-08-05 诚实化）"
+  },
+  "evals": [
+    {
+      "id": 1,
+      "name": "event-hesitant-medium",
+      "iteration": "iteration-1",
+      "assertions": [
+        {
+          "name": "gate_trigger_medium",
+          "description": "触发引擎输出 trigger=true 且 intensity=medium",
+          "check": "读取 gate_output.json：trigger=true，intensity=medium"
+        },
+        {
+          "name": "guide_has_entry",
+          "description": "引导包含行动入口（整理成单/发单）",
+          "check": "reply 中引导部分含「整理成单」「发单」「一键发单」之一"
+        },
+        {
+          "name": "guide_leaves_escape",
+          "description": "引导留退路（或继续聊/不急/你自己决定）",
+          "check": "reply 中引导部分含退路表达"
+        },
+        {
+          "name": "guide_length_ok",
+          "description": "引导部分 ≤ 80 汉字",
+          "check": "提取引导句，统计汉字数 ≤ 80"
+        },
+        {
+          "name": "no_absolutes",
+          "description": "无绝对化词汇（保证/一定/最快/绝对）",
+          "check": "reply 不含上述词汇"
+        },
+        {
+          "name": "core_ignorable",
+          "description": "可忽略测试：删除引导后核心回复仍完整",
+          "check": "核心回复（引导前的部分）独立可懂，包含需求回应"
+        },
+        {
+          "name": "v0_5_15_explicit_options",
+          "description": "v0.5.15 新增：引导含 ≥ 2 个编号选项 + 后果说明 + 快捷触发词",
+          "check": "reply 中匹配 /\b[12]\\./ 至少 2 次 + 含「回复 1/2」或「选 1」等快捷说明"
+        }
+      ],
+      "scenario_summary": "发单方犹豫预算：办开发者大赛，第 5 轮，槽位 60%，confidence 0.8（v0.5.22 阈值下调后 0.74→strong）"
+    },
+    {
+      "id": 2,
+      "name": "acquisition-ready-strong",
+      "iteration": "iteration-1",
+      "assertions": [
+        {
+          "name": "gate_trigger_strong",
+          "description": "触发引擎输出 trigger=true 且 intensity=strong",
+          "check": "读取 gate_output.json：trigger=true，intensity=strong"
+        },
+        {
+          "name": "guide_has_entry",
+          "description": "引导含明确行动入口（一键发单）",
+          "check": "reply 含「一键发单」或等价明确入口"
+        },
+        {
+          "name": "guide_has_anchor",
+          "description": "引导含案例锚点（供应商/获客成本/案例数）",
+          "check": "reply 含供应商/成本区间/案例等事实锚点"
+        },
+        {
+          "name": "guide_leaves_escape",
+          "description": "引导留退路",
+          "check": "reply 含退路表达"
+        },
+        {
+          "name": "guide_length_ok",
+          "description": "引导部分 ≤ 80 汉字",
+          "check": "提取引导句，统计汉字数 ≤ 80"
+        },
+        {
+          "name": "no_absolutes",
+          "description": "无绝对化词汇",
+          "check": "reply 不含保证/一定/最快/绝对"
+        },
+        {
+          "name": "v0_5_15_explicit_options",
+          "description": "v0.5.15 新增：强引导含 ≥ 2 个编号选项 + 后果说明 + 快捷触发词",
+          "check": "reply 中匹配 /\b[12]\\./ 至少 2 次 + 含「回复 1/2」或「选 1」等快捷说明"
+        }
+      ],
+      "scenario_summary": "发单方信息已齐：1000 注册试用，第 8 轮，槽位 100%，confidence 0.9"
+    },
+    {
+      "id": 3,
+      "name": "pick-order-weak",
+      "iteration": "iteration-1",
+      "assertions": [
+        {
+          "name": "gate_trigger_weak",
+          "description": "触发引擎输出 trigger=true 且 intensity=weak",
+          "check": "读取 gate_output.json：trigger=true，intensity=weak"
+        },
+        {
+          "name": "lists_matching_orders",
+          "description": "回复列出匹配订单（预算/周期）",
+          "check": "reply 含匹配订单描述（如 React 组件库测评/Vue3 迁移）"
+        },
+        {
+          "name": "no_button_entry",
+          "description": "弱引导不附按钮/卡片式入口",
+          "check": "reply 无「一键接单」按钮式表达或独立卡片（自然问句允许）"
+        },
+        {
+          "name": "guide_leaves_escape",
+          "description": "引导留退路",
+          "check": "reply 含退路表达"
+        },
+        {
+          "name": "no_absolutes",
+          "description": "无绝对化词汇",
+          "check": "reply 不含保证/一定/最快/绝对"
+        },
+        {
+          "name": "v0_5_23_pick_full_loop",
+          "description": "v0.5.23 接单方全链路（以生产截图 26 工具为准）：list_bids → select_bid → review_deliverable → get_bill",
+          "check": "接单路径引导提到 DevOrder__list_bids（发现可接单）与 DevOrder__select_bid（认领）；交付/结算阶段提到 DevOrder__review_deliverable / DevOrder__get_bill"
+        }
+      ],
+      "scenario_summary": "接单方主动询问：第 3 轮（新会话早期），匹配订单 2 个"
+    },
+    {
+      "id": 4,
+      "name": "learning-silent",
+      "iteration": "iteration-1",
+      "assertions": [
+        {
+          "name": "gate_silent",
+          "description": "触发引擎输出 trigger=false",
+          "check": "读取 gate_output.json：trigger=false"
+        },
+        {
+          "name": "answers_knowledge",
+          "description": "回复回答了知识问题（办大会环节）",
+          "check": "reply 包含办大会环节相关内容（主题/嘉宾/场地/宣传/报名/执行等）"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：无任何交易入口或服务推销",
+          "check": "reply 不含「一键发单」「帮你发单」「对接供应商」等引导表达"
+        }
+      ],
+      "scenario_summary": "学习型负例：想了解办大会流程（知识非执行）"
+    },
+    {
+      "id": 5,
+      "name": "rejected-weak-once",
+      "iteration": "iteration-1",
+      "assertions": [
+        {
+          "name": "gate_trigger_weak_no_tool",
+          "description": "触发引擎输出 trigger=true、intensity=weak、tool=null",
+          "check": "读取 gate_output.json：trigger=true，intensity=weak，tool=null"
+        },
+        {
+          "name": "no_button_entry",
+          "description": "拒绝后弱引导不附任何按钮/入口",
+          "check": "reply 无「一键发单」入口式表达"
+        },
+        {
+          "name": "weak_text_only",
+          "description": "只留文字提及（如比对方案/询价可找我）",
+          "check": "reply 引导部分为纯文字提及，无工具调用入口"
+        },
+        {
+          "name": "guide_leaves_escape",
+          "description": "引导留退路",
+          "check": "reply 含退路表达"
+        },
+        {
+          "name": "no_absolutes",
+          "description": "无绝对化词汇",
+          "check": "reply 不含保证/一定/最快/绝对"
+        }
+      ],
+      "scenario_summary": "拒绝后新信号：rejectionFlags[event]=true，第 10 轮重新提及办活动"
+    },
+    {
+      "id": 10,
+      "name": "diagnosis-counted-in-cap",
+      "iteration": "iteration-2",
+      "assertions": [
+        {
+          "name": "gate_silent_cap",
+          "description": "触发引擎输出 trigger=false（频率帽计数含诊断提示）",
+          "check": "读取 gate_output.json：trigger=false，reason 含频率帽"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导",
+          "check": "reply 不含「一键发单」「帮你发单」等引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复正常确认需求",
+          "check": "reply 含需求确认或后续步骤说明（不附入口）"
+        }
+      ],
+      "scenario_summary": "E10 诊断计入频率帽：2 次诊断提示 + 1 次交易引导后，需求极明确仍静默"
+    },
+    {
+      "id": 11,
+      "name": "strong-card-80-boundary",
+      "iteration": "iteration-2",
+      "assertions": [
+        {
+          "name": "gate_trigger_strong",
+          "description": "触发引擎输出 trigger=true、intensity=strong、score=0.82",
+          "check": "读取 gate_output.json：trigger=true，intensity=strong，score=0.82"
+        },
+        {
+          "name": "card_length_ok",
+          "description": "引导卡片 ≤ 80 汉字",
+          "check": "提取卡片部分（需求已经很清晰了…你倾向哪种），汉字数 ≤ 80"
+        },
+        {
+          "name": "has_entry",
+          "description": "卡片含 [一键发单] 入口",
+          "check": "卡片部分含「一键发单」"
+        },
+        {
+          "name": "guide_leaves_escape",
+          "description": "卡片留退路",
+          "check": "卡片含「继续聊」或「你倾向哪种」等退路表达"
+        },
+        {
+          "name": "core_ignorable",
+          "description": "核心回复完整（可忽略测试）",
+          "check": "卡片前核心回复独立可懂，含需求确认"
+        }
+      ],
+      "scenario_summary": "E11 强引导卡片：v0.5.22 后 score=0.74（category 命中）即可 strong，卡片必须 ≤ 80 汉字（R1 缺陷回归测试）"
+    },
+    {
+      "id": 6,
+      "name": "frequency-cap-multi-turn",
+      "iteration": "iteration-2",
+      "assertions": [
+        {
+          "name": "gate_silent_cap",
+          "description": "触发引擎输出 trigger=false（全局频率帽）",
+          "check": "读取 gate_output.json：trigger=false，reason 含频率帽/全局静默"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：无任何引导表达",
+          "check": "reply 不含「一键发单」「帮你发单」「整理成单」「随时找我」等引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复正常推进需求",
+          "check": "reply 含需求确认或下一步建议（如确认 200 人/预算 30 万）"
+        }
+      ],
+      "scenario_summary": "E6 全局频率帽：本小时已展示 3 次引导（含诊断提示），需求极明确仍必须静默"
+    },
+    {
+      "id": 7,
+      "name": "threshold-boundary",
+      "iteration": "iteration-2",
+      "assertions": [
+        {
+          "name": "gate_62_silent",
+          "description": "轮次5 触发引擎输出 trigger=false、score=0.62",
+          "check": "读取 gate_output_round5.json（或 gate_output.json 中 round5 条目）：trigger=false，score=0.62"
+        },
+        {
+          "name": "gate_66_medium",
+          "description": "轮次6 触发引擎输出 trigger=true、intensity=medium、score=0.66",
+          "check": "读取 gate_output_round6.json（或 round6 条目）：trigger=true，intensity=medium，score=0.66"
+        },
+        {
+          "name": "reply5_zero_guide",
+          "description": "轮次5 回复零引导",
+          "check": "reply 中轮次5 部分无引导表达"
+        },
+        {
+          "name": "reply6_has_entry",
+          "description": "轮次6 回复含入口与退路",
+          "check": "reply 中轮次6 部分含发单入口与退路表达"
+        }
+      ],
+      "scenario_summary": "E7 边界分数：轮次5 score=0.62 静默 vs 轮次6 score=0.66 中引导"
+    },
+    {
+      "id": 8,
+      "name": "rejection-count-once",
+      "iteration": "iteration-2",
+      "assertions": [
+        {
+          "name": "gate_silent_used",
+          "description": "触发引擎输出 trigger=false（postRejectionWeakShown 已用）",
+          "check": "读取 gate_output.json：trigger=false，reason 含 postRejectionWeakShown 或已放行"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：彻底安静",
+          "check": "reply 不含「随时找我」「比对方案」「一键发单」「整理成单」等任何引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复正常推进",
+          "check": "reply 含活动建议相关内容"
+        }
+      ],
+      "scenario_summary": "E8 拒绝计数：拒绝后弱引导已放行 1 次，新信号再次出现必须静默"
+    },
+    {
+      "id": 9,
+      "name": "mixed-expression-negative",
+      "iteration": "iteration-2",
+      "assertions": [
+        {
+          "name": "gate_silent",
+          "description": "触发引擎输出 trigger=false",
+          "check": "读取 gate_output.json：trigger=false（或 path=diagnosis）"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：不猜原则边界",
+          "check": "reply 不含「一键发单」「帮你发单」「整理成单」等引导表达"
+        }
+      ],
+      "scenario_summary": "E9 混合表达负例：闲聊语境含服务词（办大会/活动）不触发"
+    },
+    {
+      "id": 12,
+      "name": "circuit-breaker-silent",
+      "iteration": "iteration-3",
+      "assertions": [
+        {
+          "name": "gate_silent_circuit_breaker",
+          "description": "触发引擎输出 trigger=false（连续拒绝 ≥2 熔断）",
+          "check": "读取 gate_output.json：trigger=false，score=0.0"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：熔断后不得出现任何引导表达",
+          "check": "reply 不含「一键发单」「帮你发单」「整理成单」「随时找我」等引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复仍正常推进需求",
+          "check": "reply 含需求确认或下一步建议"
+        }
+      ],
+      "scenario_summary": "E12 连续拒绝 2 次后再次表达发单需求：熔断必须生效，本会话彻底静默"
+    },
+    {
+      "id": 13,
+      "name": "pick-phase-gate-silent",
+      "iteration": "iteration-3",
+      "assertions": [
+        {
+          "name": "gate_silent_pick_phase",
+          "description": "触发引擎输出 trigger=false（接单 R4 阶段闸）",
+          "check": "读取 gate_output.json：trigger=false，score=0.0"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：非引导阶段不得出现抢单/查看订单入口",
+          "check": "reply 不含「一键接单」「抢单」「帮你找单」「查看订单」等引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复正常回应接单/提案相关需求",
+          "check": "reply 含需求确认或下一步建议"
+        }
+      ],
+      "scenario_summary": "E13 接单方进入提案阶段仍被引导抢单：R4 phase 闸必须生效，静默"
+    },
+    {
+      "id": 14,
+      "name": "pick-reject-weak-no-tool",
+      "iteration": "iteration-3",
+      "assertions": [
+        {
+          "name": "gate_trigger_weak_no_tool",
+          "description": "触发引擎输出 trigger=true、intensity=weak、tool=null",
+          "check": "读取 gate_output.json：trigger=true，intensity=weak，tool=null"
+        },
+        {
+          "name": "no_button_entry",
+          "description": "拒绝后弱引导不附任何按钮/入口",
+          "check": "reply 无「一键接单」「一键发单」入口式表达"
+        },
+        {
+          "name": "weak_text_only",
+          "description": "只留文字提及，无工具调用入口",
+          "check": "reply 引导部分为纯文字提及，无工具调用入口"
+        },
+        {
+          "name": "guide_leaves_escape",
+          "description": "引导留退路",
+          "check": "reply 含退路表达（不着急/你自己决定/继续聊）"
+        },
+        {
+          "name": "no_absolutes",
+          "description": "无绝对化词汇",
+          "check": "reply 不含保证/一定/最快/绝对"
+        }
+      ],
+      "scenario_summary": "E14 接单拒绝后新信号：降级 weak 且不附任何入口（A-2/A-3 对称防御）"
+    },
+    {
+      "id": 15,
+      "name": "diagnosis-cap-silent",
+      "iteration": "iteration-3",
+      "assertions": [
+        {
+          "name": "gate_silent_diagnosis_cap",
+          "description": "触发引擎输出 trigger=false（诊断频率帽）",
+          "check": "读取 gate_output.json：trigger=false，score=0.0"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：诊断已满 2 次不得再次出现诊断话术",
+          "check": "reply 不含「先聊聊」「帮你诊断」等诊断引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复直接正面回答咨询",
+          "check": "reply 含需求回应或下一步建议"
+        }
+      ],
+      "scenario_summary": "E15 诊断已满 2 次/会话：引擎强制诊断静默（P0-1，≤2 次）"
+    },
+    {
+      "id": 16,
+      "name": "l4-rate-limit-silent",
+      "iteration": "iteration-3",
+      "assertions": [
+        {
+          "name": "gate_silent_l4",
+          "description": "触发引擎输出 trigger=false（L4 限流）",
+          "check": "读取 gate_output.json：trigger=false，score=0.0"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：限流期间不得出现发单/接单入口",
+          "check": "reply 不含「一键发单」「整理成单」「一键接单」等引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复仍正常服务",
+          "check": "reply 含需求确认或下一步建议"
+        }
+      ],
+      "scenario_summary": "E16 L4 令牌级限流：1 分钟 opcs 调用 100 次 → 静默 60s 不触发新引导"
+    },
+    {
+      "id": 17,
+      "name": "required-fail-closed",
+      "iteration": "iteration-3",
+      "assertions": [
+        {
+          "name": "gate_silent_required",
+          "description": "触发引擎输出 trigger=false（必填字段缺失 fail-closed）",
+          "check": "读取 gate_output.json：trigger=false，score=0.0"
+        },
+        {
+          "name": "zero_guide",
+          "description": "零引导：fail-closed 静默，不得出现任何引导",
+          "check": "reply 不含「一键发单」「整理成单」「一键接单」等引导表达"
+        },
+        {
+          "name": "core_advances",
+          "description": "核心回复正常服务",
+          "check": "reply 含需求回应或下一步建议"
+        }
+      ],
+      "scenario_summary": "E17 缺危险字段（activeOrders/频率帽/冷却）：fail-closed 静默，禁止旁路触发强引导"
+    },
+    {
+      "id": 18,
+      "name": "consult-flow-happy-path",
+      "iteration": "iteration-4",
+      "assertions": [
+        {
+          "name": "gate_trigger_strong_or_medium",
+          "description": "触发引擎输出 trigger=true 且 intensity=medium 或 strong（用户已表达发单需求）",
+          "check": "读取 gate_output.json：trigger=true，intensity ∈ {medium, strong}"
+        },
+        {
+          "name": "consult_first_called",
+          "description": "进入第 3 步必须先调 DevOrder__consult（不允许直接 DevOrder__create_order）",
+          "check": "工具调用记录第一条 DevOrder__consult（text=用户原话）"
+        },
+        {
+          "name": "reply_forwarded_verbatim",
+          "description": "顾问 reply 原样转达（不润色/不裁剪）",
+          "check": "回复文本与 DevOrder__consult 返回的 reply 字段完全一致（结构比对）"
+        },
+        {
+          "name": "session_id_carried",
+          "description": "多轮续接时 sessionId 必带",
+          "check": "第 2+ 次 consult 调用的入参含首次返回的 sessionId"
+        },
+        {
+          "name": "draft_plan_after_ready",
+          "description": "仅当 phase=ready 才调 draft_plan",
+          "check": "draft_plan 调用前一条 consult 返回 phase=ready"
+        },
+        {
+          "name": "publish_plan_after_confirm",
+          "description": "用户明示确认后才调 publish_plan",
+          "check": "publish_plan 调用前用户消息含「发布/确认」"
+        },
+        {
+          "name": "zero_speculation_in_reply",
+          "description": "AI 工具端不自己编造追问/方案/报价",
+          "check": "回复文本不包含咨询流以外的顾问类语句（除原样转达外）"
+        }
+      ],
+      "scenario_summary": "E18 consult 流 happy path：用户表达办大赛 → 触发 → consult 首轮 → 多轮 → ready → draft_plan → publish_plan 全链路断言"
+    },
+    {
+      "id": 19,
+      "name": "consult-flow-offplatform-handoff",
+      "iteration": "iteration-4",
+      "assertions": [
+        {
+          "name": "offplatform_honest_handoff",
+          "description": "顾问返回 offPlatform=true 时如实转达并停（不强行 create_order）",
+          "check": "consult 返回 offPlatform=true 后，不出现 DevOrder__create_order / DevOrder__publish_plan 调用"
+        },
+        {
+          "name": "no_silent_drop",
+          "description": "offPlatform 时用户得到明确解释（不是静默无响应）",
+          "check": "回复文本含 offPlatform 转述话术或建议其他渠道"
+        },
+        {
+          "name": "core_question_answered",
+          "description": "核心回复（offPlatform 原因）正常服务",
+          "check": "reply 含匹配度评估或替代渠道建议"
+        }
+      ],
+      "scenario_summary": "E19 consult 流 offPlatform 边界：顾问判断不匹配 → 如实转达 + 不建单 + 停于多轮"
+    },
+    {
+      "id": 20,
+      "name": "consult-relay-fidelity-first-turn",
+      "iteration": "iteration-4",
+      "assertions": [
+        {
+          "name": "all_blocks_present",
+          "description": "5 区块全部出现",
+          "check": "转达文本含客户洞察/市场行情/需求卡/reply 原文/ask 候选"
+        },
+        {
+          "name": "digits_preserved",
+          "description": "数字逐字保留",
+          "check": "extract_business_numbers(reply) ⊆ relay"
+        },
+        {
+          "name": "stage_advice_verbatim",
+          "description": "业界打法原文引用",
+          "check": "research.业界通常打法 完整出现在 relay"
+        },
+        {
+          "name": "no_relay_paraphrase",
+          "description": "无『顾问说:…』式重述",
+          "check": "relay 不以『顾问说/回复称/大概意思』开头"
+        }
+      ],
+      "scenario_summary": "E20 consult 首轮转达保真（修复 2026-08-17 失真实测）"
+    },
+    {
+      "id": 21,
+      "name": "consult-relay-fidelity-subsequent-turn",
+      "iteration": "iteration-4",
+      "assertions": [
+        {
+          "name": "no_block_redundancy",
+          "description": "续轮不重复首轮的客户洞察/市场行情",
+          "check": "relay 不含『业界通常打法』『刊例参考区间』（首轮已呈现）"
+        },
+        {
+          "name": "facts_updated",
+          "description": "需求卡变化部分呈现",
+          "check": "facts.已确认 增量项必现"
+        },
+        {
+          "name": "reply_verbatim",
+          "description": "续轮 reply 仍逐字",
+          "check": "本轮 reply 完整存在"
+        }
+      ],
+      "scenario_summary": "E21 consult 续轮转达保真 + 去重策略"
+    },
+    {
+      "id": 22,
+      "name": "fidelity-check-detection",
+      "iteration": "iteration-4",
+      "assertions": [
+        {
+          "name": "missing_numbers_detected",
+          "description": "fidelity_check 检出数字缺失",
+          "check": "故意省略某数字后 fidelity_check.missing_numbers 含此项"
+        },
+        {
+          "name": "fidelity_rate_metric",
+          "description": "fidelity_rate 字段正确",
+          "check": "0 缺失时 fidelity_rate=1.0；部分缺失时按比例下降"
+        }
+      ],
+      "scenario_summary": "E22 fidelity_check 自身保真（自检过自检）"
+    }
+  ]
+}

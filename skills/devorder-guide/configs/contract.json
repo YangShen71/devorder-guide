@@ -1,0 +1,244 @@
+{
+ "$comment": "guide_gate(ctx) 27 字段输入契约单一数据源（P2-1）。与 Spec-001 数据模型、guide_gate._c() 运行时校验一致；opcs 工具字段见 reports/audit/opcs-schema-audit-20260804.md（真实 schema 为准）",
+ "version": "1.0",
+ "fields": [
+  {
+   "name": "sessionId",
+   "type": "str",
+   "required": true,
+   "default": null,
+   "desc": "会话标识（频率帽/冷却键）"
+  },
+  {
+   "name": "platform",
+   "type": "str",
+   "required": true,
+   "default": "other",
+   "enum": [
+    "workbuddy",
+    "claude_desktop",
+    "kimi",
+    "other"
+   ],
+   "desc": "埋点分拆 + 兼容性"
+  },
+  {
+   "name": "platformCompatible",
+   "type": "bool",
+   "required": true,
+   "default": false,
+   "desc": "S0.5 平台兼容闸"
+  },
+  {
+   "name": "userIntent",
+   "type": "str",
+   "required": true,
+   "default": null,
+   "enum": [
+    "issue_order",
+    "pick_order",
+    "consult",
+    "chitchat",
+    "service_query"
+   ],
+   "desc": "意图分类（S1 分路键）"
+  },
+  {
+   "name": "category",
+   "type": "str",
+   "required": true,
+   "default": null,
+   "desc": "7 值枚举（R5 枚举校验键）"
+  },
+  {
+   "name": "subtype",
+   "type": "str|null",
+   "required": false,
+   "default": null,
+   "desc": "仅 event 类目有效（5 值）"
+  },
+  {
+   "name": "confidence",
+   "type": "float",
+   "required": true,
+   "default": null,
+   "range": [
+    0,
+    1
+   ],
+   "desc": "R5 硬闸 ≥0.75"
+  },
+  {
+   "name": "slotFill",
+   "type": "float",
+   "required": true,
+   "default": null,
+   "range": [
+    0,
+    1
+   ],
+   "desc": "强度③ slotFill ≥0.65"
+  },
+  {
+   "name": "round",
+   "type": "int",
+   "required": true,
+   "default": null,
+   "desc": "轮次分（3≤r≤15=1.0）"
+  },
+  {
+   "name": "phase",
+   "type": "str",
+   "required": true,
+   "default": "gather",
+   "enum": [
+    "gather",
+    "ready",
+    "proposal",
+    "idle"
+   ],
+   "desc": "R4 闸，仅 gather/ready"
+  },
+  {
+   "name": "guideCountThisHour",
+   "type": "int",
+   "required": true,
+   "default": 0,
+   "desc": "S0 频率帽 ≥3 静默"
+  },
+  {
+   "name": "lastSameCategoryMinutesAgo",
+   "type": "int|null",
+   "required": true,
+   "desc": "距上次同类引导分钟数（引擎 fail-closed 必检，2026-08-05 复审 C1 收口）"
+  },
+  {
+   "name": "rejectionFlags",
+   "type": "dict",
+   "required": true,
+   "default": {},
+   "desc": "R3/拒绝分支键"
+  },
+  {
+   "name": "postRejectionWeakShown",
+   "type": "dict",
+   "required": true,
+   "default": {},
+   "desc": "拒绝后弱引导已放行标记"
+  },
+  {
+   "name": "hasNewDemandSignal",
+   "type": "bool",
+   "required": true,
+   "default": false,
+   "desc": "拒绝分支「新信号」键"
+  },
+  {
+   "name": "activeOrders",
+   "type": "list",
+   "required": true,
+   "default": [],
+   "desc": "R6 非冲突闸"
+  },
+  {
+   "name": "userRole",
+   "type": "str",
+   "required": true,
+   "default": "unknown",
+   "enum": [
+    "issuer",
+    "picker",
+    "unknown",
+    "consult"
+   ],
+   "desc": "R7 角色闸"
+  },
+  {
+   "name": "guideHistory",
+   "type": "list",
+   "required": true,
+   "default": [],
+   "desc": "冷却/频率帽数据源"
+  },
+  {
+   "name": "painKeywords",
+   "type": "bool",
+   "required": true,
+   "default": false,
+   "desc": "打分：痛点词"
+  },
+  {
+   "name": "goalKeywords",
+   "type": "bool",
+   "required": true,
+   "default": false,
+   "desc": "打分：目标词"
+  },
+  {
+   "name": "specType",
+   "type": "str",
+   "required": true,
+   "default": "generic",
+   "enum": [
+    "dedicated",
+    "generic",
+    "unknown"
+   ],
+   "desc": "打分：专属 Spec 命中"
+  },
+  {
+   "name": "matchedOrderCount",
+   "type": "int",
+   "required": true,
+   "default": 0,
+   "desc": "接单路径技能匹配数"
+  },
+  {
+   "name": "orderQuality",
+   "type": "str|null",
+   "required": false,
+   "default": null,
+   "enum": [
+    "full",
+    "partial",
+    "category_only"
+   ],
+   "desc": "接单路径订单质量"
+  },
+  {
+   "name": "skillTags",
+   "type": "list",
+   "required": false,
+   "default": [],
+   "desc": "接单方技能标签（v3.2 新增，映射 opcs taskTypeCodes）"
+  },
+  {
+   "name": "preferredTools",
+   "type": "list",
+   "required": false,
+   "default": [],
+   "desc": "opcs 工具偏好（按角色过滤，v3.2 新增）"
+  },
+  {
+   "name": "opcsCallsLastMinute",
+   "type": "int",
+   "required": false,
+   "default": 0,
+   "desc": "L4 令牌级限流：最近 1 分钟 opcs 调用次数（业务报告 §5.4.5，≥100 静默）"
+  },
+  {
+   "name": "consecutiveRejections",
+   "type": "int",
+   "required": false,
+   "desc": "连续拒绝引导次数（v1.5 §4.4：≥2 触发熔断，本会话静默）",
+   "default": 0
+  },
+  {
+   "name": "diagnosisCount",
+   "type": "int",
+   "required": false,
+   "desc": "本会话诊断提示次数（2026-08-05 P0-1：≥2 引擎强制静默，diagnosis-path.md）",
+   "default": 0
+  }
+ ]
+}
