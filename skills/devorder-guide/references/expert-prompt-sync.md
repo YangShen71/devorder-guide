@@ -27,8 +27,7 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 | 表格 `\| \| \|` | 结构化数据 | 需求卡/分项/里程碑 |
 | 进度 `N/M = X%` | 信息全齐度 | `6/9 = 67% · 第 3 步` |
 | 引用块 `> ` | 顾问 reply 原文 | `> 明白，明年3月那场会...` |
-| 阶段徽章 🟢🟡🔴 | phase 状态 | `🟢 phase=ready · 第 4 步` |
-| 模型徽章 `🤖` | 服务侧模型 | `🤖 Deepseek-V4-Flash` |
+| 阶段徽章 🟢🟡🔴 | phase 状态 | `🟢 phase=ready · 第 4 步 · ▰▰▰▰▱`（5 段能量条：第 N 步填 N 个 ▰，其余 ▱；🟢 ready 时全 ▰）|
 | 工具消费 | 用时 | `🛠️ 0.64 token` |
 
 ### 必含元数据（便于回溯）
@@ -81,7 +80,7 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 - 🟠 **普通确认（v0.5.4 状态，可能失效）**：`好的` / `嗯` / `出方案吧`
 - 🔴 **禁忌词**：`等一下` / `我想想` / `再说` / `暂时不急`（让 phase 永远停在 gathering）
 
-**用户说弱信号词时**：Agent 应**主动引导**——「请直接回复『发布订单』或『确认发布』，这样我可以为您生成正式方案。」
+**用户说弱信号词时**：Agent 应**主动提醒**——「请直接回复『发布订单』或『确认发布』，这样我可以为您生成正式方案。」
 
 **phase 推进后**：调 `DevOrder__draft_plan` → 调 `DevOrder__publish_plan`（用真实"发布"强化服务端意图识别）。
 
@@ -100,8 +99,8 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 ## consult 循环内「两步判断」（v0.5.11 · 与 SKILL.md 第 3 步同文）
 
 每次 consult 拿回 `facts` 后**先判断 `facts.还需了解`**：
-- 非空（信息未齐）→ 保真转达 + 引导补全（**不用**强信号词）；
-- 为空（信息已齐）→ 引导用户回强信号词（「发布订单」/「确认发布」）→ consult 触发 phase=ready → draft_plan。
+- 非空（信息未齐）→ 保真转达 + 提醒补全（**不用**强信号词）；
+- 为空（信息已齐）→ 提醒用户回强信号词（「发布订单」/「确认发布」）→ consult 触发 phase=ready → draft_plan。
 
 强信号词是**必要不充分条件**：信息未齐时即使强信号词也无效（v0.5.10.1 实测）。
 
@@ -109,8 +108,8 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 
 ## 错误码兜底（红线⑧）
 
-- 4xx 业务错误（CONFLICT/RESPONSE_SCHEMA_MISMATCH/INVALID_API_KEY/...）→ 对话内继续引导
-- 5xx/L2 类（L2_NOT_CONFIGURED/L2_TIMEOUT/L2_UNREACHABLE）→ 引导回 Web 端 /client
+- 4xx 业务错误（CONFLICT/RESPONSE_SCHEMA_MISMATCH/INVALID_API_KEY/...）→ 对话内继续提醒
+- 5xx/L2 类（L2_NOT_CONFIGURED/L2_TIMEOUT/L2_UNREACHABLE）→ 告知回 Web 端 /client
 - 429 限流 → 静默 60 秒（不重复触发 opcs 调用）
 - `DevOrder__get_advisor_session` 返回 RESPONSE_SCHEMA_MISMATCH（服务端响应 schema 与 WorkBuddy 本地契约版本差异）→ 改用 `DevOrder__get_my_orders` 只读核对，无副作用残留
 - 所有兜底话术 ≤80 字、含退路、无绝对化词（过 check_copy）——**仅限兜底话术**；consult 转达/方案/发布阶段（第 3~3.5 步）目的就是出方案发单，不受退路约束（见 SKILL.md 话术质量红线作用域声明）
@@ -131,7 +130,7 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 
 ## 强度规则 v0.5.13 同步（与 guide_gate.py pick_intensity + SKILL.md 第 2 步三处同文）
 
-> **核心变更（v0.5.13 · 产品决策）**：删除原「round≤3 且无历史 → weak」拦截；新增「category 命中即强引导」规则。
+> **核心变更（v0.5.13 · 产品决策）**：删除原「round≤3 且无历史 → weak」拦截；新增「category 命中即 strong」规则。
 
 | 规则 | 触发条件 | 强度 | 入口 | 适用场景 |
 |---|---|---|---|---|
@@ -141,5 +140,5 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 | ④ medium | score ≥ 0.5（不命中以上）| medium | 1 个可选入口 | 需求明确但未强烈表达行动意愿 |
 | 默认 | score < 0.5 | 不触发 | — | 信息太弱 |
 
-**关键判定**：当用户表达"想做什么 + 与订单平台品类相关（5 类之一）" → 直接 strong 强引导，附 MCP 入口；不再等待"先建立信任"的弱引导——产品方认为订单平台场景下"先建立信任"不适用。
+**关键判定**：当用户表达"想做什么 + 与订单平台品类相关（5 类之一）" → 直接 strong strong，附 MCP 入口；不再等待"先建立信任"的weak——产品方认为订单平台场景下"先建立信任"不适用。
 

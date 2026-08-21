@@ -66,7 +66,7 @@
     0,
     1
    ],
-   "desc": "R5 硬闸 ≥0.75"
+   "desc": "R5 硬闸 ≥0.5（v0.5.28 下调：防打扰与转化平衡）"
   },
   {
    "name": "slotFill",
@@ -110,7 +110,7 @@
    "name": "lastSameCategoryMinutesAgo",
    "type": "int|null",
    "required": true,
-   "desc": "距上次同类引导分钟数（引擎 fail-closed 必检，2026-08-05 复审 C1 收口）"
+   "desc": "距上次同类触发分钟数（引擎 fail-closed 必检，2026-08-05 复审 C1 收口）"
   },
   {
    "name": "rejectionFlags",
@@ -124,7 +124,7 @@
    "type": "dict",
    "required": true,
    "default": {},
-   "desc": "拒绝后弱引导已放行标记"
+   "desc": "拒绝后 weak 已放行标记"
   },
   {
    "name": "hasNewDemandSignal",
@@ -230,7 +230,7 @@
    "name": "consecutiveRejections",
    "type": "int",
    "required": false,
-   "desc": "连续拒绝引导次数（v1.5 §4.4：≥2 触发熔断，本会话静默）",
+   "desc": "连续拒绝次数（v1.5 §4.4：≥2 触发熔断，本会话静默）",
    "default": 0
   },
   {

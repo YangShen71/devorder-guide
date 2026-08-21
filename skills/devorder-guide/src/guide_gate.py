@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""DevOrder 引导闸门 — 确定性触发引擎（《AI 工具对话引导方案 v1.4》§3 实现）
+"""DevOrder 闸门 — 确定性引擎（《AI 工具对话处理方案 v1.4》§3 实现）
 
 实现 S0~S6 决策路径：频率帽 → 平台兼容 → 意图分路 → 硬规则闸(R1~R7) → 拒绝分支 → 打分 → 强度选择 → 工具选择。
-零模型自由度：本脚本的输出是"是否引导、什么强度、什么入口"的唯一来源。
+零模型自由度：本脚本的输出是"是否触发、什么强度、什么入口"的唯一来源。
 
 用法：
     python guide_gate.py --context '<json>'
@@ -10,7 +10,7 @@
 输出：JSON，含 trigger / intensity / tool / score / reason / path。
 
 设计基线（修改需走方案评审，v1.4 §0.3）：
-- 阈值 0.5；置信度硬闸 0.75；全局频率帽 3 次/小时；同类冷却 10 分钟
+- 阈值 0.5；置信度硬闸 0.5；全局频率帽 3 次/小时；同类冷却 10 分钟
 - 强度规则（v0.5.22 阈值下调后）：拒绝→weak（需新信号）；category 命中 5 品类且 score≥0.5 → strong；
             score≥0.6 且 slotFill≥0.65 → strong；score≥0.5 → medium
 """
@@ -46,7 +46,7 @@ _CFG = _load_constants()
 
 DEFAULT_THRESHOLD = _CFG.get("DEFAULT_THRESHOLD", 0.5)
 STRONG_SCORE = _CFG.get("STRONG_SCORE", 0.6)
-CONFIDENCE_GATE = _CFG.get("CONFIDENCE_GATE", 0.75)
+CONFIDENCE_GATE = _CFG.get("CONFIDENCE_GATE", 0.5)
 GLOBAL_CAP_PER_HOUR = _CFG.get("GLOBAL_CAP_PER_HOUR", 3)
 CATEGORY_COOLDOWN_MINUTES = _CFG.get("CATEGORY_COOLDOWN_MINUTES", 10)
 STRONG_SLOT_FILL = _CFG.get("STRONG_SLOT_FILL", 0.65)
@@ -77,7 +77,7 @@ def check_frequency_cap(ctx):
     if count >= GLOBAL_CAP_PER_HOUR:
         return (
             False,
-            f"全局频率帽：本小时已展示 {count} 次引导（≥{GLOBAL_CAP_PER_HOUR}），全局静默 30 分钟",
+            f"全局频率帽：本小时已展示 {count} 次触发（≥{GLOBAL_CAP_PER_HOUR}），全局静默 30 分钟",
         )
     return True, None
 
@@ -104,14 +104,14 @@ def check_circuit_breaker(ctx):
     """连续拒绝熔断：consecutiveRejections ≥ 2 → 本会话静默（防打扰最后一道闸）。
 
     背景：v1.5 §4.4 声明的「连续拒绝 ≥2 类 → 全局静默 2h」在引擎中无落地（审查 H3）。
-    以字段级实现会话内版：模型在用户拒绝引导时递增 consecutiveRejections（SKILL.md 第 3 步
-    已要求记录 rejectionFlags），≥2 即触发熔断，本会话不再触发任何引导。
+    以字段级实现会话内版：模型在用户拒绝时递增 consecutiveRejections（SKILL.md 第 3 步
+    已要求记录 rejectionFlags），≥2 即触发熔断，本会话不再触发任何。
     """
     rejects = _c(ctx, "consecutiveRejections", 0)
     if rejects >= 2:
         return (
             False,
-            f"熔断：连续拒绝 {rejects} 次（≥2），本会话静默不再触发引导（v1.5 §4.4）",
+            f"熔断：连续拒绝 {rejects} 次（≥2），本会话静默不再触发（v1.5 §4.4）",
         )
     return True, None
 
@@ -132,7 +132,7 @@ def intent_split(ctx):
     if intent in ("consult", "service_query"):
         # 2026-08-05 三轮审查 F-3：service_query 显式归入诊断路径（契约 5 值枚举对齐）
         label = "consult" if intent == "consult" else "service_query"
-        return "diagnosis", f"{label} 意图 → 诊断路径（不触发交易引导）"
+        return "diagnosis", f"{label} 意图 → 诊断路径（不触发交易）"
     if intent == "pick_order":
         return "pick", None
     if intent == "chitchat":
@@ -149,12 +149,12 @@ def check_hard_gates(ctx):
     if last_same < CATEGORY_COOLDOWN_MINUTES:
         return (
             False,
-            f"R1 同类冷却：距上次同类引导仅 {last_same} 分钟（<{CATEGORY_COOLDOWN_MINUTES}）",
+            f"R1 同类冷却：距上次同类触发仅 {last_same} 分钟（<{CATEGORY_COOLDOWN_MINUTES}）",
         )
 
     # R4 对话阶段合法
     if _c(ctx, "phase", "gather") not in ("gather", "ready"):
-        return False, f"R4 阶段不合法：phase={_c(ctx, 'phase', 'gather')}，仅 gather/ready 允许引导"
+        return False, f"R4 阶段不合法：phase={_c(ctx, 'phase', 'gather')}，仅 gather/ready 允许触发"
 
     # R5 需求可信（发单路径）
     if _c(ctx, "confidence", 0.0) < CONFIDENCE_GATE:
@@ -190,19 +190,19 @@ def rejection_branch(ctx):
     if flags.get(category, False):
         if not _c(ctx, "hasNewDemandSignal", False):
             return None, f"拒绝分支：{category} 已被拒绝且无新需求信号 → 彻底安静"
-        # v1.5 修复：拒绝后弱引导本会话内总计 ≤ 1 次（postRejectionWeakShown 已给过即不再给）
+        # v1.5 修复：拒绝后 weak 本会话内总计 ≤ 1 次（postRejectionWeakShown 已给过即不再给）
         shown = _c(ctx, "postRejectionWeakShown", {})
         if shown.get(category, False):
             return (
                 None,
-                f"拒绝分支：{category} 的拒绝后弱引导已放行 1 次（postRejectionWeakShown），后续新信号不再触发",
+                f"拒绝分支：{category} 的拒绝后 weak 已放行 1 次（postRejectionWeakShown），后续新信号不再触发",
             )
         return {
             "text": "weak",
             "tool": None,
             "intensity": "weak",
             "score": 0.0,
-            "reason": "拒绝后弱引导（新信号出现，总计第 1 次，不附入口）",
+            "reason": "拒绝后 weak（新信号出现，总计第 1 次，不附入口）",
         }, None
     return None, None
 
@@ -273,21 +273,21 @@ def pick_intensity(score, ctx):
     flags = _c(ctx, "rejectionFlags", {})
     category = _c(ctx, "category", "unknown")
     if flags.get(category, False):
-        return "weak", "规则① 拒绝后 → 弱引导"
-    # 规则②（v0.5.13 升级·category 命中即强引导）：用户表达意图且与订单平台强相关（category 命中） → 直接强引导，附带 MCP 入口帮助用户连接订单平台。
-    # 关键变更：删除「round≤3 且无历史 → weak」拦截（v0.5.10 之前的「先建立信任」弱引导）——产品决策：当 category 命中时，强引导优先级高于会话早期限制；用户表达"想做什么 + 与订单平台相关"即应得到直接引导
+        return "weak", "规则① 拒绝后 → weak"
+    # 规则②（v0.5.13 升级·category 命中即 strong）：用户表达意图且与订单平台强相关（category 命中） → 直接 strong，附带 MCP 入口帮助用户连接订单平台。
+    # 关键变更：删除「round≤3 且无历史 → weak」拦截（v0.5.10 之前的「先建立信任」weak）——产品决策：当 category 命中时，strong优先级高于会话早期限制；用户表达"想做什么 + 与订单平台相关"即应得到直接 strong
     if category in VALID_CATEGORIES and score >= DEFAULT_THRESHOLD:
         return (
             "strong",
-            f"规则② category={category} 命中订单平台品类 + score={score}≥{DEFAULT_THRESHOLD} → 强引导（v0.5.13 新增·category 命中即强引导）",
+            f"规则② category={category} 命中订单平台品类 + score={score}≥{DEFAULT_THRESHOLD} → strong（v0.5.13 新增·category 命中即 strong）",
         )
     if score >= STRONG_SCORE and _c(ctx, "slotFill", 0.0) >= STRONG_SLOT_FILL:
         return (
             "strong",
-            f"规则③ score={score}≥{STRONG_SCORE} 且 slotFill≥{STRONG_SLOT_FILL} → 强引导",
+            f"规则③ score={score}≥{STRONG_SCORE} 且 slotFill≥{STRONG_SLOT_FILL} → strong",
         )
     if score >= DEFAULT_THRESHOLD:
-        return "medium", f"规则④ score={score}≥{DEFAULT_THRESHOLD} → 中引导"
+        return "medium", f"规则④ score={score}≥{DEFAULT_THRESHOLD} → medium"
     return None, f"score={score} < {DEFAULT_THRESHOLD} → 不触发"
 
 
@@ -295,7 +295,7 @@ def pick_intensity(score, ctx):
 # 依据 reports/audit/opcs-schema-audit-20260804.md 真实 schema：
 # - 里程碑 4 工具（add/configure/delete/update_milestone）实为发单方动作（文档附录 A.3 原推断归接单方，已修正）
 # - list_bids 为「订单客户查看本人订单」→ 归 issuer
-# - 所有写工具含 userConfirmation 硬门禁（引导层在第 3 重确认后传 true，红线⑨）
+# - 所有写工具含 userConfirmation 硬门禁（触发层在第 3 重确认后传 true，红线⑨）
 # 2026-08-05 P0-2：OPCS_ROLE_TOOLS 从 constants.json opcs_role_tool_map 加载（唯一口径）
 OPCS_ROLE_TOOLS = _CFG.get(
     "opcs_role_tool_map",
@@ -333,8 +333,8 @@ def pick_tool(user_role, intent):
     """按角色返回 opcs 工具白名单（S6 工具选择，2026-08-04 schema 核对版）。
 
     发单路径（consult-first，v0.5.25 修正）：issuer → opcs_consult（平台主路径：
-    引导入口一律先顾问梳理，方案确认后由 publish_plan 建单；create_order 保留在
-    OPCS_ROLE_TOOLS 白名单供老手直发/进阶，但不再作为引导入口推荐）。
+    入口一律先顾问梳理，方案确认后由 publish_plan 建单；create_order 保留在
+    OPCS_ROLE_TOOLS 白名单供老手直发/进阶，但不再作为入口推荐）。
     接单路径：picker → opcs_list_orders。
     未知角色仅允许公开浏览 opcs_list_orders；consult 无工具（诊断路径不调 opcs）。
     """
@@ -359,13 +359,13 @@ def pick_order_gate(ctx):
             "score": 0.0,
             "reason": f"接单路径 R7：userRole={_c(ctx, 'userRole', 'unknown')} 非接单方",
         }
-    # R4 对话阶段（与发单路径一致：仅 gather/ready 允许引导，2026-08-05 A-1 修复）
+    # R4 对话阶段（与发单路径一致：仅 gather/ready 允许触发，2026-08-05 A-1 修复）
     phase = _c(ctx, "phase", "gather")
     if phase not in PICK_VALID_PHASES:
         return {
             "trigger": False,
             "score": 0.0,
-            "reason": f"接单路径 R4：phase={phase} 非引导阶段（gather/ready），静默",
+            "reason": f"接单路径 R4：phase={phase} 非触发阶段（gather/ready），静默",
         }
     # R1 同类冷却（order_pick 视为一个类别）
     if _c(ctx, "lastSameCategoryMinutesAgo", 999) < CATEGORY_COOLDOWN_MINUTES:
@@ -377,16 +377,16 @@ def pick_order_gate(ctx):
     flags = _c(ctx, "rejectionFlags", {})
     if flags.get("order_pick", False) and not _c(ctx, "hasNewDemandSignal", False):
         return {"trigger": False, "score": 0.0, "reason": "接单路径：已被拒绝且无新信号"}
-    # v1.5 修复：拒绝后弱引导总计 ≤ 1 次
+    # v1.5 修复：拒绝后 weak 总计 ≤ 1 次
     if flags.get("order_pick", False) and _c(ctx, "postRejectionWeakShown", {}).get(
         "order_pick", False
     ):
         return {
             "trigger": False,
             "score": 0.0,
-            "reason": "接单路径：拒绝后弱引导已放行 1 次，后续新信号不再触发",
+            "reason": "接单路径：拒绝后 weak 已放行 1 次，后续新信号不再触发",
         }
-    # 拒绝后新信号：降级为弱引导（无入口，防打扰红线）
+    # 拒绝后新信号：降级为 weak（无入口，防打扰红线）
     if flags.get("order_pick", False) and _c(ctx, "hasNewDemandSignal", False):
         return {
             "trigger": True,
@@ -394,7 +394,7 @@ def pick_order_gate(ctx):
             "intensity": "weak",
             "tool": None,
             "score": 0.0,
-            "reason": "接单路径：拒绝后新信号 → 弱引导（无入口）",
+            "reason": "接单路径：拒绝后新信号 → weak（无入口）",
         }
     # 打分
     score = compute_pick_score(ctx)
@@ -407,7 +407,7 @@ def pick_order_gate(ctx):
     intensity, reason = pick_intensity(score, ctx)
     if intensity is None:
         return {"trigger": False, "score": score, "reason": reason}
-    # 2026-08-05 A-3 修复：weak 不附入口（方案 §3.3 规则②「弱引导不附按钮」）
+    # 2026-08-05 A-3 修复：weak 不附入口（方案 §3.3 规则②「weak不附按钮」）
     return {
         "trigger": True,
         "path": "pick_order",
@@ -420,7 +420,7 @@ def pick_order_gate(ctx):
 
 # ---------------- 主流程（S0→S6） ----------------
 # 必填字段白名单（2026-08-05 实证核查修复：缺字段 fail-open 漏洞——缺 activeOrders 旁路 R6
-# 触发强引导；缺 guideCountThisHour/lastSameCategoryMinutesAgo 旁路频率帽/冷却。fail-closed：缺失即静默）
+# 触发strong；缺 guideCountThisHour/lastSameCategoryMinutesAgo 旁路频率帽/冷却。fail-closed：缺失即静默）
 REQUIRED_CTX_FIELDS = [
     "activeOrders",  # 缺省 [] 会旁路 R6 进行中交易静默
     "guideCountThisHour",  # 缺省 0 会旁路全局频率帽
@@ -496,7 +496,7 @@ def guide_gate(ctx):
     intensity, reason = pick_intensity(score, ctx)
     if intensity is None:
         return {"trigger": False, "score": score, "reason": reason}
-    # S6 工具（2026-08-05 A-3 修复：weak 不附入口——方案 §3.3 规则②「弱引导不附按钮」）
+    # S6 工具（2026-08-05 A-3 修复：weak 不附入口——方案 §3.3 规则②「weak不附按钮」）
     tool = pick_tool(_c(ctx, "userRole", "unknown"), "issue_order") if intensity != "weak" else None
     return {
         "trigger": True,
@@ -514,7 +514,7 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description="DevOrder 引导闸门（确定性触发引擎）")
+    parser = argparse.ArgumentParser(description="DevOrder 闸门（确定性引擎）")
     parser.add_argument("--context", help="JSON 字符串或 @文件路径")
     args = parser.parse_args()
 
