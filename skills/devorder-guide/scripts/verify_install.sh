@@ -12,15 +12,46 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"   # 脚本移入包内后：scripts/../../.. = 仓库根（dist 产物输出目录；第七轮修正：../.. 只到 skills/）
 SKIP_PACKAGE="${1:-}"
 INSTALL_DIR="${2:-$HOME/.workbuddy/skills/devorder-guide}"
 PYTHON="${PYTHON:-python}"
+
+# --targets 多工具循环（子命令，置于 SKIP_PACKAGE 解析之前；通过自调用 + 既有 $2 安装目录参数复用全流程）
+if [[ "${1:-}" == "--targets" ]]; then
+  [[ -z "${2:-}" ]] && { echo "用法: $0 --targets claude,codex,...（工具列表不能为空）"; exit 1; }   # R41：空列表不再静默空转
+  for t in ${2//,/ }; do
+    case "$t" in
+      claude)    D="$HOME/.claude/skills";;
+      codex)     D="$HOME/.agents/skills";;
+      cursor)    D="$HOME/.cursor/skills";;
+      kimi)      D="$HOME/.kimi-code/skills";;
+      trae-cn)   D="$HOME/.trae-cn/skills";;
+      trae)      D="$HOME/.trae/skills";;
+      workbuddy) D="$HOME/.workbuddy/skills";;
+      *) echo "❌ 未知工具: $t"; exit 1;;
+    esac
+    echo "── 工具 $t → ${D}/devorder-guide ──"
+    bash "$0" "" "${D}/devorder-guide"     # 复用既有全流程（$1 空=完整流程，$2=安装目录）
+  done
+  exit 0
+fi
+
+# --temp-install 模式（CI/临时验收用：解压到临时目录，退出自动清理；覆盖 INSTALL_DIR）
+TEMP_INSTALL=""
+case "${1:-}" in
+  --temp-install) TEMP_INSTALL=1;;
+esac
+if [[ -n "${TEMP_INSTALL}" ]]; then
+  INSTALL_DIR="$(mktemp -d)/devorder-guide"
+  trap 'rm -rf "$(dirname "${INSTALL_DIR}")"' EXIT
+fi
 
 # Git Bash 路径 → Windows 路径（Python 需要）
 if command -v cygpath >/dev/null 2>&1; then
   ROOT_WIN="$(cygpath -w "${ROOT}")"
   INSTALL_WIN="$(cygpath -w "${INSTALL_DIR}")"
-  SKILL_ZIP_WIN="$(cygpath -w "${ROOT}/dist/devorder-guide.skill")"
+  SKILL_ZIP_WIN="$(cygpath -w "${REPO_ROOT}/dist/devorder-guide.skill")"
 else
   ROOT_WIN="${ROOT}"; INSTALL_WIN="${INSTALL_DIR}"; SKILL_ZIP_WIN="${ROOT}/dist/devorder-guide.skill"
 fi
@@ -33,7 +64,7 @@ echo "安装目录: ${INSTALL_DIR}"
 if [[ "${SKIP_PACKAGE}" != "--skip-package" ]]; then
   echo ""
   echo "[1/4] 重新打包 .skill ..."
-  (cd "${ROOT}" && PYTHONUTF8=1 "${PYTHON}" -m src.package_skill . dist)
+  (cd "${ROOT}" && PYTHONUTF8=1 "${PYTHON}" -m src.package_skill . "${REPO_ROOT}/dist")
 
   echo ""
   echo "[2/4] 版本核对（H-3：防装错版本零差异通过）..."
@@ -120,10 +151,16 @@ if [[ "${SKIP_PACKAGE}" == "--skip-package" ]]; then
   fi
 fi
 
+# 完整流程入口（打包+版本核对之后、安装之前）：防 INSTALL_DIR==ROOT 自清空（R38；temp 模式目录尚不存在，只比对路径）
+if [[ "${ROOT}" == "${INSTALL_DIR}" ]]; then
+  echo "❌ ROOT == INSTALL_DIR（自比较恒为零差异，禁止宣称分发一致性）"
+  exit 1
+fi
+
 # 2) 安装（覆盖式解压）
 echo ""
 echo "[3/4] 覆盖安装到 ${INSTALL_DIR} ..."
-SKILL_ZIP="${ROOT}/dist/devorder-guide.skill"
+SKILL_ZIP="${REPO_ROOT}/dist/devorder-guide.skill"
 if [[ ! -f "${SKILL_ZIP}" ]]; then
   echo "❌ .skill 不存在：${SKILL_ZIP}"
   exit 1
@@ -131,7 +168,7 @@ fi
 mkdir -p "${INSTALL_DIR}"
 # 清空目标目录，防旧包残留（.ruff_cache 等非排除项历史残留）——2026-08-05 O-1' 修复
 find "${INSTALL_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
-(cd "${INSTALL_DIR}" && "${PYTHON}" -c "
+(cd "${INSTALL_DIR}" && PYTHONUTF8=1 "${PYTHON}" -c "
 import sys, zipfile, os
 from pathlib import Path
 z = zipfile.ZipFile(r'${SKILL_ZIP_WIN}')
