@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "devorder-guide"
-version = "0.5.26"
+version = "0.6.0"
 description = "DevOrder AI 工具对话引导 Skill — 确定性触发引擎与话术合规校验"
 readme = "README.md"
 license = {text = "Proprietary"}

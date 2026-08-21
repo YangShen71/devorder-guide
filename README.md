@@ -4,11 +4,11 @@ DevOrder（CSDN 开发者服务交易平台）对话引导 Skill——在 AI 工
 
 ## 🚀 30 秒安装（普通客户版）
 
-1. 复制本仓库链接：`https://github.com/<owner>/devorder-guide`
+1. 复制本仓库链接：`https://github.com/YangShen71/devorder-guide`
 2. 粘贴到你的 AI 工具对话框（Claude Code / Codex / Cursor / Kimi Code / OpenClaw / WorkBuddy / TRAE 等）
 3. 说「帮我安装这个技能」，AI 会自动完成——**弹出权限确认时点「允许」即可**
 
-安装协议见 [INSTALL.md](INSTALL.md)；网络不便可用 [GitCode 镜像](https://gitcode.com/<owner>/devorder-guide)。
+安装协议见 [INSTALL.md](INSTALL.md)；网络不便可用 [GitCode 镜像](https://gitcode.com/YangShen71/devorder-guide)。
 
 ## 各工具安装与触发（9 张卡片，含手动兜底）
 

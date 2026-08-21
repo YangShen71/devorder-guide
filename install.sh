@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # devorder-guide 万能安装器（macOS/Linux）
 set -euo pipefail
-SOURCE="${1:-https://github.com/<owner>/devorder-guide.git}"
+SOURCE="${1:-https://github.com/YangShen71/devorder-guide.git}"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 if [[ -d "$PWD/skills/devorder-guide" ]]; then PKG="$(pwd)/skills/devorder-guide"   # 本地仓库模式（开发/内测）——按目录判定，勿用 [[ -f SKILL.md ]]（在包目录内会误判）
 else

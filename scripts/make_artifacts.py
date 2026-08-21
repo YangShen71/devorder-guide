@@ -122,13 +122,13 @@ def build_artifacts() -> None:
     (PLUGIN_DIR / ".claude-plugin/plugin.json").write_text(
         json.dumps({"name": "devorder-guide", "version": version(),
                     "description": "DevOrder 对话引导 Skill（Agent Skills 标准分发版）",
-                    "author": "<owner>", "license": "Proprietary"}, ensure_ascii=False, indent=2),
+                    "author": "YangShen71", "license": "Proprietary"}, ensure_ascii=False, indent=2),
         encoding="utf-8")
     # 3) marketplace.json（入库文件，构建后需 git 提交）
     MARKETPLACE.parent.mkdir(parents=True, exist_ok=True)
     MARKETPLACE.write_text(json.dumps({
         "name": "devorder-guide-marketplace",
-        "owner": {"name": "<owner>", "email": "<email>"},
+        "owner": {"name": "YangShen71", "email": "1690979835@qq.com"},
         "plugins": [{"name": "devorder-guide", "source": "./plugins/devorder-guide", "version": version()}],
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     # 3.5) InsCode Desktop 用 AtomCode 规范目录（与 .claude-plugin 同内容，入库）——InsCode 官方市场仓实测为 .atomcode-plugin/ 前缀

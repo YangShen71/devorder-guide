@@ -1,7 +1,7 @@
 ﻿# devorder-guide 万能安装器（Windows）
 # 用法:  powershell -ExecutionPolicy Bypass -File install.ps1 [-Source <git-url>] [-Tools auto|claude,codex,...] [-DryRun]
 param(
-    [string]$Source = "https://github.com/<owner>/devorder-guide.git",
+    [string]$Source = "https://github.com/YangShen71/devorder-guide.git",
     [string]$Tools = "auto",
     [switch]$DryRun
 )

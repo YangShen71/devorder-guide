@@ -1,14 +1,14 @@
 {
   "name": "devorder-guide-marketplace",
   "owner": {
-    "name": "<owner>",
-    "email": "<email>"
+    "name": "YangShen71",
+    "email": "1690979835@qq.com"
   },
   "plugins": [
     {
       "name": "devorder-guide",
       "source": "./plugins/devorder-guide",
-      "version": "0.5.26"
+      "version": "0.6.0"
     }
   ]
 }
