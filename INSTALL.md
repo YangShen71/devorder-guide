@@ -9,7 +9,7 @@
 1. **先探测环境**：`python3 --version`（Windows 试 `py -3 --version` 或 `python --version`）。若 < 3.10 或缺失，向用户说明技能引擎需要 Python 3.10+，并询问是否安装（推荐：`winget install Python.Python.3.12` 或官网 python.org）。
 2. **按下方「通道表」选定通道执行**。执行命令前会看到权限确认——**这是正常的安全机制，请等待用户批准后继续，不要放弃**。
 3. **执行验收清单**（见 §3），向用户汇报三项：装到了哪个工具、怎么触发、还缺什么（Python / DevOrder MCP 等）。
-4. 若 GitHub 访问失败（国内网络常见），改用镜像：`https://gitcode.com/YangShen71/devorder-guide`。
+4. 若 GitHub 访问失败（国内网络常见），改用镜像：`https://gitcode.com/yangshen71/devorder-guide`（国内加速，自动同步）。
 
 ## 通道表（AI 优先，人工兜底在 §4）
 
@@ -22,7 +22,7 @@
 | OpenClaw | `openclaw skills install git:YangShen71/devorder-guide` | 复制到 `~/.openclaw/workspace/skills/devorder-guide` 后 `openclaw restart` |
 | WorkBuddy | 告知用户：主界面 → 头像 → Claw设置 → 技能管理 →「从Git仓库导入」→ 粘贴仓库链接 | 下载 Release 的 `.skill` 包 ZIP 导入，或把 SKILL.md 拖进聊天框 |
 | TRAE | 无法 AI 一键安装，走人工：设置 → 技能与命令 → 创建 → 上传 `devorder-guide.skill`（Release 资产）或复制到 `~/.trae-cn/skills/`（国内版） | 同上；或 `npx skills add YangShen71/devorder-guide -s devorder-guide -a trae -g -y` |
-| InsCode Desktop | 暂走插件市场：`/plugin marketplace add https://gitcode.com/YangShen71/devorder-guide.git`（需上架后可用，见 README） | 复制到 InsCode 技能目录（AtomCode 规范，路径以客户端文档为准） |
+| InsCode Desktop | 暂走插件市场：`/plugin marketplace add https://gitcode.com/yangshen71/devorder-guide.git`（需上架后可用，见 README） | 复制到 InsCode 技能目录（AtomCode 规范，路径以客户端文档为准） |
 | GitHub Copilot | `gh skill install YangShen71/devorder-guide devorder-guide --agent github-copilot --scope user` | — |
 
 > 说明：`gh skill` 需要 GitHub CLI ≥ 2.90（`gh --version` 检查；安装：`winget install GitHub.cli`）。`npx skills` 需要 Node.js。`-a` 后的 agent 名以 `npx skills add --help` 当前支持列表为准，个别工具如不支持就用「复制」通道。
@@ -57,5 +57,5 @@
 ## §7 常见问题
 
 - **权限确认弹窗**：正常。AI 需要执行安装命令/运行 python，请点击允许
-- **GitHub 打不开**：用 GitCode 镜像 `https://gitcode.com/YangShen71/devorder-guide`，或下载 Release 资产人工导入
+- **GitHub 打不开**：用 GitCode 镜像 `https://gitcode.com/yangshen71/devorder-guide`（国内加速，自动同步），或下载 Release 资产人工导入
 - **装了不触发**：先确认 Python ≥ 3.10；再确认技能开关/目录正确；还不行就到本仓库 Issues 提问

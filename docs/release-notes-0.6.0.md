@@ -10,7 +10,7 @@ DevOrder 对话引导 Skill 正式开源分发：把你的 AI 工具（Claude Co
 2. 粘贴到 AI 工具对话框，说「帮我安装这个技能」
 3. 弹出权限确认点「允许」——完成
 
-> 安装协议见 INSTALL.md；国内网络不便可用 GitCode 镜像（发布后补充地址）。
+> 安装协议见 INSTALL.md；国内网络不便可用 [GitCode 镜像](https://gitcode.com/yangshen71/devorder-guide)（自动同步）。
 
 ## ✨ 本版亮点（0.5.26 → 0.6.0）
 
