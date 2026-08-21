@@ -147,15 +147,35 @@ def build_artifacts() -> None:
     print(f"✅ 产物生成完毕：version={version()}，包大小={(DIST / 'devorder-guide.skill').stat().st_size} 字节")
 
 
+def check_tag_consistency(tag: str | None) -> list[str]:
+    """tag(vX.Y.Z) 与 pyproject/SKILL.md 版本必须一致。"""
+    errors = []
+    if not tag:
+        return errors
+    ver = version()
+    if tag != f"v{ver}":
+        errors.append(f"tag {tag} ≠ pyproject version {ver}")
+    try:
+        meta = (PKG / "SKILL.md").read_text(encoding="utf-8").split("---")[1]
+        meta_ver = [l.split(":", 1)[1].strip().strip('"') for l in meta.splitlines()
+                    if l.strip().startswith("version")][0]
+        if meta_ver != ver:
+            errors.append(f"SKILL.md metadata.version {meta_ver} ≠ pyproject {ver}")
+    except (IndexError, KeyError):
+        errors.append("SKILL.md 中找不到 metadata.version")
+    return errors
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--check", action="store_true")
     g.add_argument("--build", action="store_true")
+    ap.add_argument("--tag", default=None, help="git tag（vX.Y.Z），校验与包版本一致（release.yml 用）")
     args = ap.parse_args()
     if args.build:
         build_artifacts()       # 必须先 build 再 check：MIRROR 首次缺失时 check_mirror 读文件会 FileNotFoundError 崩溃（R24）
-    errors = check_mirror() + check_artifacts()
+    errors = check_mirror() + check_artifacts() + check_tag_consistency(args.tag)
     if errors:
         for e in errors:
             print(f"❌ {e}")

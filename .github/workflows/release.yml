@@ -1,0 +1,22 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install ruff pytest
+      - run: PYTHON=python RUFF=ruff bash skills/devorder-guide/scripts/check_all.sh
+      - run: python scripts/make_artifacts.py --check --tag "$GITHUB_REF_NAME"   # 先校验（含 tag 一致性），失败即停止，不进入发布
+      - run: python scripts/make_artifacts.py --build --tag "$GITHUB_REF_NAME"
+      - run: python -m pytest tests/ -v
+      - name: Create Release
+        run: gh release create "$GITHUB_REF_NAME" dist/devorder-guide.skill dist/SHA256SUMS --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

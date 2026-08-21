@@ -1,0 +1,15 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install ruff pytest
+      - run: PYTHON=python RUFF=ruff bash skills/devorder-guide/scripts/check_all.sh
+      - run: python scripts/make_artifacts.py --check   # 先校验：已提交的 marketplace.json/镜像/插件副本是否与真源一致
+      - run: python scripts/make_artifacts.py --build   # 再构建：确认产物可生成
+      - run: python -m pytest tests/ -v
+      # tag 上的版本一致性由 release.yml 严格校验，ci.yml 不重复
