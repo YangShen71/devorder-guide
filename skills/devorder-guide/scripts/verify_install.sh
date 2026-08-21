@@ -12,7 +12,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"   # 脚本移入包内后：scripts/../../.. = 仓库根（dist 产物输出目录；第七轮修正：../.. 只到 skills/）
 SKIP_PACKAGE="${1:-}"
 INSTALL_DIR="${2:-$HOME/.workbuddy/skills/devorder-guide}"
 PYTHON="${PYTHON:-python}"
@@ -44,16 +43,15 @@ case "${1:-}" in
 esac
 if [[ -n "${TEMP_INSTALL}" ]]; then
   INSTALL_DIR="$(mktemp -d)/devorder-guide"
-  trap 'rm -rf "$(dirname "${INSTALL_DIR}")"' EXIT
+  trap 'rm -rf "$(dirname "${INSTALL_DIR}")" "${PKG_TMP:-}"' EXIT   # PKG_TMP 在 [1/4] 打包段定义（临时打包目录，不污染仓库 dist/）
 fi
 
 # Git Bash 路径 → Windows 路径（Python 需要）
 if command -v cygpath >/dev/null 2>&1; then
   ROOT_WIN="$(cygpath -w "${ROOT}")"
   INSTALL_WIN="$(cygpath -w "${INSTALL_DIR}")"
-  SKILL_ZIP_WIN="$(cygpath -w "${REPO_ROOT}/dist/devorder-guide.skill")"
 else
-  ROOT_WIN="${ROOT}"; INSTALL_WIN="${INSTALL_DIR}"; SKILL_ZIP_WIN="${REPO_ROOT}/dist/devorder-guide.skill"   # Linux/CI 无 cygpath 回退：产物在仓库根 dist/（与打包输出同目录，防同款路径漂移）
+  ROOT_WIN="${ROOT}"; INSTALL_WIN="${INSTALL_DIR}"
 fi
 
 echo "=== O-5 分发漂移防护校验 ==="
@@ -64,7 +62,13 @@ echo "安装目录: ${INSTALL_DIR}"
 if [[ "${SKIP_PACKAGE}" != "--skip-package" ]]; then
   echo ""
   echo "[1/4] 重新打包 .skill ..."
-  (cd "${ROOT}" && PYTHONUTF8=1 "${PYTHON}" -m src.package_skill . "${REPO_ROOT}/dist")
+  PKG_TMP="$(mktemp -d)"   # 打包到临时目录：verify_install 是验证性打包，写仓库 dist/ 会用当前解释器覆盖发布产物（SHA256SUMS 由 make_artifacts --build 生成，两解释器 zip 字节不同 → 哈希失配）
+  (cd "${ROOT}" && PYTHONUTF8=1 "${PYTHON}" -m src.package_skill . "${PKG_TMP}")
+  if command -v cygpath >/dev/null 2>&1; then
+    SKILL_ZIP_WIN="$(cygpath -w "${PKG_TMP}/devorder-guide.skill")"
+  else
+    SKILL_ZIP_WIN="${PKG_TMP}/devorder-guide.skill"
+  fi
 
   echo ""
   echo "[2/4] 版本核对（H-3：防装错版本零差异通过）..."
@@ -160,7 +164,7 @@ fi
 # 2) 安装（覆盖式解压）
 echo ""
 echo "[3/4] 覆盖安装到 ${INSTALL_DIR} ..."
-SKILL_ZIP="${REPO_ROOT}/dist/devorder-guide.skill"
+SKILL_ZIP="${PKG_TMP:-}/devorder-guide.skill"
 if [[ ! -f "${SKILL_ZIP}" ]]; then
   echo "❌ .skill 不存在：${SKILL_ZIP}"
   exit 1
