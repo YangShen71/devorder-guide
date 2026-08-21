@@ -7,6 +7,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"   # scripts/../../.. = 仓库根（dist 产物在仓库根；第七轮修正层级）
 # 2026-08-12 修复：PYTHON 默认指向 managed default venv（含 pytest），
 # 避免裸 python 解析到无 pytest 的解释器导致六位一体 TESTS 误败
 PYTHON="${PYTHON:-$HOME/.workbuddy/binaries/python/envs/default/Scripts/python.exe}"
@@ -76,7 +77,7 @@ check "命中回归" env PYTHONUTF8=1 "${PYTHON}" scripts/hit_check.py
 # 5. 六位一体
 check "六位一体" env PYTHONUTF8=1 "${PYTHON}" -m src.pipeline
 # 6. 分发一致性（打包→安装→diff 复验）
-check "分发一致性" bash scripts/verify_install.sh --skip-package
+check "分发一致性" bash scripts/verify_install.sh --temp-install
 
 # 7. fidelity 自检回归（2026-08-18 P1-5 T-1：每次跑 check_all 自动验证 fidelity_check 可用）
 # ⚠️ 修正方案原文断言（v1.1 缺陷）：G7 灰度默认 warn，缺失样例 exit=0 属正常；
@@ -104,9 +105,9 @@ if [[ "${FAILED}" -eq 0 ]]; then
   echo "✅ 七连全部通过"
   echo ""
   echo "── 实测数字（发布声明用，2026-08-05 复审 N7 纪律）──"
-  echo "  引擎行数: $(wc -l < src/guide_gate.py) | contract 字段: $(python -c "import json;print(len(json.load(open('configs/contract.json',encoding='utf-8'))['fields']))" 2>/dev/null || echo '?')"
-  echo "  审计: $(python -m src.audit_contract src/guide_gate.py 2>/dev/null | grep -oE '(总数|trigger 返回): [0-9]+' | tr '\n' ' ')"
-  echo "  dist 包: $(python -c "import zipfile;print(len(zipfile.ZipFile('dist/devorder-guide.skill').namelist()),'文件')" 2>/dev/null || echo '?') / $(du -h dist/devorder-guide.skill 2>/dev/null | cut -f1)"
+  echo "  引擎行数: $(wc -l < src/guide_gate.py) | contract 字段: $(PYTHONUTF8=1 "${PYTHON}" -c "import json;print(len(json.load(open('configs/contract.json',encoding='utf-8'))['fields']))" 2>/dev/null || echo '?')"
+  echo "  审计: $(PYTHONUTF8=1 "${PYTHON}" -m src.audit_contract src/guide_gate.py 2>/dev/null | grep -oE '(总数|trigger 返回): [0-9]+' | tr '\n' ' ')"
+  echo "  dist 包: $(PYTHONUTF8=1 "${PYTHON}" -c "import zipfile;print(len(zipfile.ZipFile(r'$(cygpath -w "${REPO_ROOT}/dist/devorder-guide.skill" 2>/dev/null || echo "${REPO_ROOT}/dist/devorder-guide.skill")').namelist()),'文件')" 2>/dev/null || echo '?') / $(du -h "${REPO_ROOT}/dist/devorder-guide.skill" 2>/dev/null | cut -f1)"
   exit 0
 else
   echo "❌ 存在失败项（见上）"
