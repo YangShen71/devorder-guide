@@ -53,7 +53,7 @@ python scripts/make_artifacts.py --check --tag vX.Y.Z   # 含 tag 版本一致�
 ## GitCode 镜像（国内客户访问）
 
 ```bash
-git remote add gitcode https://gitcode.com/<owner>/devorder-guide.git
+git remote add gitcode https://gitcode.com/YangShen71/devorder-guide.git
 git push gitcode main --tags
 ```
 
