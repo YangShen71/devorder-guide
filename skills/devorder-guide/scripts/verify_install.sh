@@ -53,7 +53,7 @@ if command -v cygpath >/dev/null 2>&1; then
   INSTALL_WIN="$(cygpath -w "${INSTALL_DIR}")"
   SKILL_ZIP_WIN="$(cygpath -w "${REPO_ROOT}/dist/devorder-guide.skill")"
 else
-  ROOT_WIN="${ROOT}"; INSTALL_WIN="${INSTALL_DIR}"; SKILL_ZIP_WIN="${ROOT}/dist/devorder-guide.skill"
+  ROOT_WIN="${ROOT}"; INSTALL_WIN="${INSTALL_DIR}"; SKILL_ZIP_WIN="${REPO_ROOT}/dist/devorder-guide.skill"   # Linux/CI 无 cygpath 回退：产物在仓库根 dist/（与打包输出同目录，防同款路径漂移）
 fi
 
 echo "=== O-5 分发漂移防护校验 ==="

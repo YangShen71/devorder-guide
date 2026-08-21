@@ -13,13 +13,13 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"   # scripts/.
 PYTHON="${PYTHON:-$HOME/.workbuddy/binaries/python/envs/default/Scripts/python.exe}"
 RUFF="${RUFF:-$HOME/.workbuddy/binaries/python/envs/default/Scripts/ruff.exe}"
 
-# Windows 下 venv 不存在时回退 PATH
-if [[ ! -x "${PYTHON}" ]]; then
+# Windows 下 venv 不存在时回退 PATH（-x 不查 PATH：裸命令名须 command -v 兜底，否则 PYTHON=python3 会被误覆写）
+if [[ ! -x "${PYTHON}" ]] && ! command -v "${PYTHON}" >/dev/null 2>&1; then
   PYTHON="python"
 fi
 
-# Windows 下 ruff 不在 PATH 时用 venv 绝对路径
-if [[ ! -x "${RUFF}" ]]; then
+# Windows 下 ruff 不在 PATH 时用 venv 绝对路径（同上：裸命令名须 command -v 兜底）
+if [[ ! -x "${RUFF}" ]] && ! command -v "${RUFF}" >/dev/null 2>&1; then
   RUFF="ruff"
 fi
 
@@ -82,7 +82,7 @@ check "分发一致性" bash scripts/verify_install.sh --temp-install
 # 7. fidelity 自检回归（2026-08-18 P1-5 T-1：每次跑 check_all 自动验证 fidelity_check 可用）
 # ⚠️ 修正方案原文断言（v1.1 缺陷）：G7 灰度默认 warn，缺失样例 exit=0 属正常；
 #    故按 JSON 输出 passed 字段判定（完整=passed:true / 缺失=passed:false），与模式无关
-if [[ -x "${PYTHON}" ]]; then
+if [[ -x "${PYTHON}" ]] || command -v "${PYTHON}" >/dev/null 2>&1; then   # -x 不查 PATH：裸命令名（CI 的 PYTHON=python）须 command -v 兜底，否则 fidelity 段静默跳过
   echo ""
   echo "── [FIDELITY 自检] ──"
   if "${PYTHON}" -m src.check_copy --fidelity "目标 2000 人" "目标 2000 人" 2>/dev/null | grep -q '"passed": true'; then
