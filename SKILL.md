@@ -1,6 +1,6 @@
 ---
 name: devorder-guide
-version: 1.4.10
+version: 1.4.11
 identity: CUSTOMER
 description: DevOrder 对话处理：识别用户的开发者服务需求（开发者增长/用户招募/内容创作/内容分发/广告投放/技术会议/开发者大赛/训练营/线上实操/线下活动/社区运营），确定性判定是否触发发单/接单，用 DevOrder MCP 工具闭环。发单/接单/招募/测评/推广等意图触发；闲聊不触发。
 whenToUse: 用户表达开发者服务交易需求时：办活动（技术会议/开发者大赛/训练营/线下活动/动手实操）、拉用户（开发者增长/用户招募/种子用户/冷启动/曝光/广告投放/内容分发）、做社区（社区运营/内容创作/推广）、了解产品（需求诊断/深度测评/UI 设计）、以及发单/接单/找承包商等交易意图。仅闲聊、咨询平台流程、了解行业文章、查询已有订单时**不**使用。
@@ -17,7 +17,7 @@ DevOrder 是 CSDN 旗下开发者服务交易平台，服务目录覆盖六大�
 
 ## Skill 元数据与版本管理
 
-- 当前版本：`1.4.10`
+- 当前版本：`1.4.11`
 - 适用身份：`CUSTOMER`（发单方）
 - 版本查询接口：`GET /api/v1/skills/version`
 - 下载接口：使用平台线版本查询响应中的 `downloadUrl`（生产环境稳定渠道）
@@ -91,7 +91,7 @@ DevOrder 是 CSDN 旗下开发者服务交易平台，服务目录覆盖六大�
        print('SENTINEL_CORRUPT'); sys.exit(0)
    "
    ```
-   - 输出 `SENTINEL_OK:v1.4.10` → 哨兵校验通过，继续步骤 1 版本查询。
+   - 输出 `SENTINEL_OK:v1.4.11` → 哨兵校验通过，继续步骤 1 版本查询。
    - 输出 `SENTINEL_OK:vunknown` → 哨兵存在但 version 字段缺失，视为损坏，执行下方 C-2c 自愈重建。
    - 输出 `SENTINEL_MISSING` / `SENTINEL_CORRUPT` → 哨兵缺失或损坏，执行下方 C-2c 自愈重建后继续。
    - 输出 `SENTINEL_MISMATCH:loaded=xxx:main=devorder-guide` + `RELOAD_HINT:<绝对路径>` → **确定性确诊** L1 故障（当前加载目录不是哨兵声明的主目录）。立即停止按当前 Skill 逻辑执行，改为从 `RELOAD_HINT` 指定的**绝对路径**读取 SKILL.md 并以其为准继续处理当前用户请求；无法做到时按现有 `DIR_IS_BACKUP` 逻辑告警 + 跳过自动更新。
@@ -117,7 +117,7 @@ DevOrder 是 CSDN 旗下开发者服务交易平台，服务目录覆盖六大�
    ```
    - 输出 `SENTINEL_REBUILT:vX` → 哨兵已自愈重建，继续步骤 1 版本查询。
 
-1. **读 frontmatter**：从本文件 frontmatter 顶层读取当前 `version` 值（当前为 `1.4.10`）。
+1. **读 frontmatter**：从本文件 frontmatter 顶层读取当前 `version` 值（当前为 `1.4.11`）。
 2. **调用版本查询**（用 python3 内联脚本，符合 `allowed-tools` 白名单。将 frontmatter 读到的 version 值替换命令中的 `{version}` 占位符）：
    ```bash
    python3 -c "import urllib.request,json; r=json.load(urllib.request.urlopen(urllib.request.Request('https://devorder.csdn.net/api/v1/skills/version?identity=CUSTOMER&currentVersion={version}',headers={'User-Agent':'devorder-guide'}))); d=r['data']; print('LATEST='+d['latestVersion']+' DL='+d['downloadUrl']+' FORCE='+str(d.get('forceUpdate',False)))"
@@ -239,8 +239,8 @@ DevOrder 是 CSDN 旗下开发者服务交易平台，服务目录覆盖六大�
 ```json
 {
   "identity": "CUSTOMER",
-  "currentVersion": "1.4.10",
-  "latestVersion": "1.4.10",
+  "currentVersion": "1.4.11",
+  "latestVersion": "1.4.11",
   "latestId": 16,
   "downloadUrl": "/api/v1/skills/13/download",
   "forceUpdate": false,
@@ -255,13 +255,13 @@ DevOrder 是 CSDN 旗下开发者服务交易平台，服务目录覆盖六大�
 Harness 工作流：
 
 ```http
-GET https://devorder.csdn.net/api/v1/skills/version?identity=CUSTOMER&currentVersion=1.4.10
+GET https://devorder.csdn.net/api/v1/skills/version?identity=CUSTOMER&currentVersion=1.4.11
 ```
 
 读取响应中的 `latestVersion` 和 `downloadUrl`：
 
-- `latestVersion` 与 `1.4.10` 相同：继续使用当前 Skill。
-- `latestVersion` 与 `1.4.10` 不同：使用响应中的 `downloadUrl` 下载最新 Skill 包（不要根据版本号自行拼接下载地址）。
+- `latestVersion` 与 `1.4.11` 相同：继续使用当前 Skill。
+- `latestVersion` 与 `1.4.11` 不同：使用响应中的 `downloadUrl` 下载最新 Skill 包（不要根据版本号自行拼接下载地址）。
 - 下载完成后，校验新包内 `SKILL.md` 的 `version` 字段是否等于 `latestVersion`。
 - 校验通过后，先写入临时目录，完成基本校验再替换本地旧版本（避免网络中断导致本地 Skill 不完整）。
 - 替换后更新本地 `currentVersion` 记录并重新加载 Skill。
