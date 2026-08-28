@@ -66,7 +66,7 @@
     0,
     1
    ],
-   "desc": "R5 硬闸 ≥0.5（v0.5.28 下调：防打扰与转化平衡）"
+   "desc": "R5 硬闸 ≥0.5（防打扰与转化平衡）"
   },
   {
    "name": "slotFill",
@@ -210,14 +210,14 @@
    "type": "list",
    "required": false,
    "default": [],
-   "desc": "接单方技能标签（v3.2 新增，映射 opcs taskTypeCodes）"
+   "desc": "接单方技能标签（映射 opcs taskTypeCodes）"
   },
   {
    "name": "preferredTools",
    "type": "list",
    "required": false,
    "default": [],
-   "desc": "opcs 工具偏好（按角色过滤，v3.2 新增）"
+   "desc": "opcs 工具偏好（按角色过滤）"
   },
   {
    "name": "opcsCallsLastMinute",
@@ -230,7 +230,7 @@
    "name": "consecutiveRejections",
    "type": "int",
    "required": false,
-   "desc": "连续拒绝次数（v1.5 §4.4：≥2 触发熔断，本会话静默）",
+   "desc": "连续拒绝次数（≥2 触发熔断，本会话静默）",
    "default": 0
   },
   {

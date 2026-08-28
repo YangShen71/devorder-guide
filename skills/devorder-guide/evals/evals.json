@@ -493,7 +493,7 @@
         },
         {
           "name": "consult_first_called",
-          "description": "进入第 3 步必须先调 DevOrder__consult（不允许直接 DevOrder__create_order）",
+          "description": "进入第 4 步必须先调 DevOrder__consult（不允许直接 DevOrder__create_order）",
           "check": "工具调用记录第一条 DevOrder__consult（text=用户原话）"
         },
         {

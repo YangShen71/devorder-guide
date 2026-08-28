@@ -30,7 +30,7 @@ guide_gate.py 对 `userIntent = consult` 返回 `{"path": "diagnosis"}`。此时
 当顾问通过诊断识别出用户需求可归入某发单 category（Spec#1~#5）且 confidence 预判 ≥ 0.5 时：
 
 1. **征询**：「听起来你的需求适合[服务名]，要不要我帮你整理成需求卡？我可以先给你一个大致预算范围。」
-2. **用户同意后**：`diagnosisCard` 槽位迁移为 `needCard`（映射见下）+ **confidence 重估**——低于 0.5 硬闸（v0.5.28 下调）则继续诊断或静默，不得强行进入发单路径；
+2. **用户同意后**：`diagnosisCard` 槽位迁移为 `needCard`（映射见下）+ **confidence 重估**——低于 0.5 硬闸则继续诊断或静默，不得强行进入发单路径；
 3. 迁移后按正常发单路径触发（冷却/频率帽独立计算）。
 
 ## 槽位迁移映射（确定性代码，零模型参与）
@@ -49,9 +49,9 @@ budget / timeline → null（待补充，由顾问只追问缺失项）
 
 北极星指标**不包含**诊断路径订单；单独跟踪「诊断→发单移交率 ≥ 30%」作为辅助指标。
 
-## 与 DevOrder__consult 工具的边界（v0.4.9 增补）
+## 与 DevOrder__consult 工具的边界
 
-`DevOrder__consult`（平台增长顾问，详见 SKILL.md 第 3 步）与诊断路径（本地需求孵化）是**两个独立通道**，互斥触发：
+`DevOrder__consult`（平台增长顾问，详见 SKILL.md 第 4 步）与诊断路径（本地需求孵化）是**两个独立通道**，互斥触发：
 
 | 维度 | 诊断路径（本地） | DevOrder__consult 工具（平台） |
 |---|---|---|
@@ -59,11 +59,11 @@ budget / timeline → null（待补充，由顾问只追问缺失项）
 | **追问主体** | 模型自问（product/goal/current_state/pain_points）| 平台增长顾问（联网研究 + 按需类型追问 + 刊例行情）|
 | **产出** | diagnosisCard（孵化用，移交发单时迁移 needCard）| sessionId/facts/phase（多轮续接，phase=ready 才可调 draft_plan）|
 | **路径** | 诊断 → 征询 → 同意 → 发单路径（用户重判 userIntent）| consult → draft_plan → publish_plan（全程发单同路径）|
-| **入口字段** | `path=diagnosis` 引擎输出 | trigger=true + tool=DevOrder__consult（SKILL.md 第 3 步文案）|
+| **入口字段** | `path=diagnosis` 引擎输出 | trigger=true + tool=DevOrder__consult（SKILL.md 第 4 步文案）|
 
 **互斥规则**：
-1. `userIntent=consult` 意图永不进入第 3 步 consult 流（引擎 S1 已分路到诊断路径）
+1. `userIntent=consult` 意图永不进入第 4 步 consult 流（引擎 S1 已分路到诊断路径）
 2. consult 流会话中若用户中途转为咨询（「其实我只是想了解下」），应停止 consult 循环，按诊断路径处理或纯对话
-3. 诊断路径的 `diagnosisCard` 槽位迁移为 `needCard` 后，按正常发单路径触发——**此时才进入第 3 步 consult 流**（而不是诊断路径直接调 DevOrder__consult），因为迁移后引擎重新判定 `userIntent=issue_order` + trigger=true
+3. 诊断路径的 `diagnosisCard` 槽位迁移为 `needCard` 后，按正常发单路径触发——**此时才进入第 4 步 consult 流**（而不是诊断路径直接调 DevOrder__consult），因为迁移后引擎重新判定 `userIntent=issue_order` + trigger=true
 
-**退路**：若 L2 顾问大脑未接入（`L2_NOT_CONFIGURED`），DevOrder__consult 不可用，发单路径回退到 `DevOrder__create_order` 直发（老手/降级场景；资质前置检查见 SKILL.md 第 3 步，NEED_CONSULT 兜底见 opcs-errors.md）——**诊断路径不依赖 L2**，始终可用。
+**退路**：若 L2 顾问大脑未接入（`L2_NOT_CONFIGURED`），DevOrder__consult 不可用，发单路径回退到 `DevOrder__create_order` 直发（老手/降级场景；资质前置检查见 SKILL.md 第 4 步，NEED_CONSULT 兜底见 opcs-errors.md）——**诊断路径不依赖 L2**，始终可用。
