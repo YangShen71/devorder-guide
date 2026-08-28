@@ -1,0 +1,47 @@
+{
+ "DEFAULT_THRESHOLD": 0.5,
+ "STRONG_SCORE": 0.6,
+ "CONFIDENCE_GATE": 0.5,
+ "GLOBAL_CAP_PER_HOUR": 3,
+ "CATEGORY_COOLDOWN_MINUTES": 10,
+ "STRONG_SLOT_FILL": 0.65,
+ "HISTORY_FIXED": 0.3,
+ "L4_RATE_LIMIT_PER_MIN": 100,
+ "L4_SILENT_SECONDS": 60,
+ "opcs_role_tool_map": {
+  "issuer": [
+   "opcs_consult",
+   "opcs_draft_plan",
+   "opcs_publish_plan",
+   "opcs_create_order",
+   "opcs_get_my_orders",
+   "opcs_get_order_detail",
+   "opcs_list_bids",
+   "opcs_select_bid",
+   "opcs_add_milestone",
+   "opcs_configure_milestones",
+   "opcs_delete_milestone",
+   "opcs_update_milestone",
+   "opcs_list_milestones",
+   "opcs_draft_agreement",
+   "opcs_get_agreement",
+   "opcs_review_deliverable",
+   "opcs_get_bill"
+  ],
+  "picker": [
+   "opcs_list_orders",
+   "opcs_get_order_detail",
+   "opcs_list_milestones",
+   "opcs_get_agreement",
+   "opcs_get_bill"
+  ],
+  "unknown": [
+   "opcs_list_orders"
+  ],
+  "consult": []
+ },
+ "FIDELITY_MODE": "warn",
+ "FIDELITY_MIN_PHRASE_LEN": 12,
+ "FIDELITY_ONLY_NUMBERS_FALLBACK": false,
+ "FIDELITY_BLOCK_CHECK": true
+}
