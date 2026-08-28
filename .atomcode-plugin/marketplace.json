@@ -8,7 +8,7 @@
     {
       "name": "devorder-guide",
       "source": "./plugins/devorder-guide",
-      "version": "1.4.11"
+      "version": "1.4.12"
     }
   ]
 }

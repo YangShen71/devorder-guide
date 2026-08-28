@@ -33,13 +33,14 @@ DevOrder-main/
 
 # 分发生成物（不入库）
 plugins/
-devorder-guide/
+/devorder-guide/
+!skills/devorder-guide/
 
 # 用户本地工作副本散件（根目录技能文件夹，T1 历史遗留复现，不入库）
 configs/
 evals/
 src/
-scripts/
+/scripts/
 references/
 /pyproject.toml
 skill-*.md
