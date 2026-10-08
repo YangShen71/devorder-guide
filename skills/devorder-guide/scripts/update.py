@@ -5,6 +5,7 @@
 
 用法：
   python scripts/update.py --check      # 只读检查（无任何写操作）
+  python scripts/update.py --dry-run    # --check 的别名（只读检查，规范兼容）
   python scripts/update.py --yes        # 执行更新（写操作，须用户显式确认）
   python scripts/update.py --rollback   # 回滚到历史遗留备份（.bak-* / .old-*）
 
@@ -53,6 +54,35 @@ def local_version() -> str:
     return v
 
 
+def _clear_contents(d: str) -> None:
+    """清空目录内容但保留根目录本身。
+
+    规避 Windows 特性：进程 cwd 若位于某目录内，该目录句柄被锁定，
+    os.rename / os.rmdir 该目录会抛 PermissionError(WinError 32)——
+    但删除其内部子项不受影响。故「就地替换」只清内容、不删根目录。
+    """
+    for entry in os.scandir(d):
+        if entry.is_dir(follow_symlinks=False):
+            shutil.rmtree(entry.path)
+        else:
+            try:
+                os.unlink(entry.path)
+            except FileNotFoundError:
+                pass
+
+
+def _chdir_safe() -> None:
+    """进程 cwd 移出技能目录，规避 Windows cwd 锁定导致目录 rename/rmdir 失败。
+
+    2026-09-14 二次事故根因：cwd 在 ROOT 内 → os.rename 目录失败 → shutil.move
+    静默回退 copytree+rmtree → rmtree 删光内容却删不掉根目录 → 主目录被清空。
+    """
+    try:
+        os.chdir(tempfile.gettempdir())
+    except OSError:
+        pass
+
+
 def ver_tuple(v: str) -> tuple:
     """语义化版本 → int 元组。必须转 int：字符串比较会把 0.10.0 误判小于 0.9.0。"""
     m = re.match(r"(\d+(?:\.\d+)*)", v or "")
@@ -90,6 +120,7 @@ def _sha256_ok(zip_path: Path, sums: str) -> bool:
 
 
 def do_update() -> int:
+    _chdir_safe()
     remote = remote_version()
     if remote is None:
         print(
@@ -170,40 +201,65 @@ def do_update() -> int:
                 if not (extract / key).exists():
                     print(f"❌ 新包缺关键文件 {key}，中止更新")
                     return 1
-            trash = ROOT.parent.parent / "skill-backups" / f"{ROOT.name}.old-{lv}-{int(time.time())}"
+            trash = (
+                ROOT.parent.parent / "skill-backups" / f"{ROOT.name}.old-{lv}-{int(time.time())}"
+            )
             trash.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(ROOT), str(trash))
+            # 就地替换（2026-09-14 二次事故修复）：原三段式 move（move 旧版→move 新目录）在
+            # Windows 上因进程 cwd 锁定 ROOT 目录导致 os.rename 失败，shutil.move 静默回退
+            # copytree+rmtree 把旧版清空且回滚失效。改为「完整备份→就地清空→就地复制」+ 可靠回滚。
+            shutil.copytree(
+                str(ROOT), str(trash), ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+            )
             try:
-                shutil.move(str(extract), str(ROOT))
+                _clear_contents(str(ROOT))
+                shutil.copytree(str(extract), str(ROOT), dirs_exist_ok=True)
             except Exception as e:
                 try:
-                    shutil.move(str(trash), str(ROOT))
+                    _clear_contents(str(ROOT))
+                    shutil.copytree(str(trash), str(ROOT), dirs_exist_ok=True)
+                    shutil.rmtree(str(trash), ignore_errors=True)
                     print(f"❌ 替换失败（{e}），已回滚旧版")
                 except Exception:
-                    print(f"❌ 替换失败且回滚失败：技能目录现位于 {trash}，请手动恢复")
+                    print(f"❌ 替换失败且回滚失败：旧版完整备份位于 {trash}，请手动恢复")
                 return 1
             # 成功后删除旧版（替代而非备份）+ 清理历史遗留 .bak/.old 目录
             shutil.rmtree(str(trash), ignore_errors=True)
             # A-1 对齐：双目录扫描（skills 目录 + skill-backups 目录）
             for base in (ROOT.parent, trash.parent):
-                for old in list(base.glob(f"{ROOT.name}.bak-*")) + list(base.glob(f"{ROOT.name}.old-*")):
+                for old in list(base.glob(f"{ROOT.name}.bak-*")) + list(
+                    base.glob(f"{ROOT.name}.old-*")
+                ):
                     shutil.rmtree(str(old), ignore_errors=True)
             # A-2 对齐：唯一主目录断言（白名单匹配——只认主目录 + .bak-*/.old-* 命名空间）
-            remaining = [p.name for p in ROOT.parent.iterdir()
-                         if p.is_dir() and (p.name == ROOT.name
-                                            or p.name.startswith(f"{ROOT.name}.bak-")
-                                            or p.name.startswith(f"{ROOT.name}.old-"))]
+            remaining = [
+                p.name
+                for p in ROOT.parent.iterdir()
+                if p.is_dir()
+                and (
+                    p.name == ROOT.name
+                    or p.name.startswith(f"{ROOT.name}.bak-")
+                    or p.name.startswith(f"{ROOT.name}.old-")
+                )
+            ]
             if remaining != [ROOT.name]:
                 print(f"⚠️ 唯一主目录断言失败，残留：{remaining}，请手工清理")
             # C-2 对齐：原子写哨兵作为更新提交点
             sentinel = ROOT.parent / "devorder-guide.current"
             sentinel_tmp = ROOT.parent / "devorder-guide.current.tmp"
-            sentinel_tmp.write_text(json.dumps({
-                "main_dir": ROOT.name,
-                "version": rv,
-                "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                "source": "opensource",
-            }, ensure_ascii=False, indent=2), encoding="utf-8")
+            sentinel_tmp.write_text(
+                json.dumps(
+                    {
+                        "main_dir": ROOT.name,
+                        "version": rv,
+                        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                        "source": "opensource",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
             os.replace(str(sentinel_tmp), str(sentinel))
             print(f"✅ 已更新至 v{rv}（旧版已删除替代；源：{src}）")
             return 0
@@ -228,6 +284,7 @@ def _bak_sort_key(p: Path) -> tuple:
 
 
 def do_rollback() -> int:
+    _chdir_safe()
     # 扫两处（skills 目录 + skill-backups/）的 .bak-*（历史遗留）与 .old-*（失败残留）
     # 注：v1.4.7 起更新采用「删除替代」，正常更新成功后不留备份，此功能仅用于
     # 历史遗留 .bak 或异常中断残留 .old 的手动恢复。
@@ -241,13 +298,20 @@ def do_rollback() -> int:
         return 0
     latest = baks[-1]
     swap = ROOT.with_name(f"{ROOT.name}.swap-{int(time.time())}")
-    shutil.move(str(ROOT), str(swap))
+    # 就地回滚（2026-09-14 二次事故修复，同 do_update）：先备份当前 → 就地清空 → 从备份复制。
+    shutil.copytree(str(ROOT), str(swap), ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     try:
-        shutil.move(str(latest), str(ROOT))
-        shutil.rmtree(swap, ignore_errors=True)
+        _clear_contents(str(ROOT))
+        shutil.copytree(str(latest), str(ROOT), dirs_exist_ok=True)
+        shutil.rmtree(str(swap), ignore_errors=True)
     except Exception as e:
-        shutil.move(str(swap), str(ROOT))
-        print(f"❌ 回滚失败（{e}），已恢复当前版本")
+        try:
+            _clear_contents(str(ROOT))
+            shutil.copytree(str(swap), str(ROOT), dirs_exist_ok=True)
+            shutil.rmtree(str(swap), ignore_errors=True)
+            print(f"❌ 回滚失败（{e}），已恢复当前版本")
+        except Exception:
+            print(f"❌ 回滚失败且恢复失败：当前版本完整备份位于 {swap}，请手动恢复")
         return 1
     print(f"✅ 已回滚（备份 {latest.name} 已恢复）；当前版本 v{local_version()}")
     return 0

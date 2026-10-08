@@ -21,6 +21,13 @@
 | CONSULT_SESSION_EXPIRED | get_advisor_session 会话过期/不存在 | 「这段梳理会话已过期，我重新帮你起一段——你刚才说的关键信息能再简单复述一下吗？」 | 重新调 consult（不含 sessionId）开新会话 |
 | REVISION_MISMATCH | revise_order_draft expectedRevision/expectedOrderDraftHash 不匹配 | 「你刚才修改时草稿已更新，再调整可能冲突——要不我再拉一下最新草稿，你说改哪里？」 | 重新调 draft_plan 拉最新 hash 再 revise |
 | DRAFT_HASH_CONFLICT | retry_publish / publish_plan 幂等键冲突 | 「订单已用相同草稿发起了，避免重复发单——你看一下订单状态是否正常」 | 调 get_my_orders 查重，已有就不重试 |
+| INVALID_ARGUMENT | 工具参数不符合契约 | 「[参数] 有点问题，我核对下最新格式再试」 | 按实时 schema 重传；**禁止臆造参数重试** |
+| RESPONSE_SCHEMA_MISMATCH | 响应校验失败（**写操作可能已成功**） | 「刚才的操作可能已提交成功，我先帮你核对一下结果」 | **先调对应只读工具核对**（get_my_orders / get_order_detail / list_milestones），**确认未落库才可重试**；禁止盲重试 |
+| INTERNAL_ERROR | 服务端内部异常 | 「平台这边出了点问题，已记录编号 [requestId]，可凭此排查」 | 记录返回的 requestId 供排查；**不自动重试** |
+
+## 通用规则：响应不符契约 ≠ 调用失败（防重复写）
+
+所有写工具（create_order / publish_plan / revise_order_draft / configure_milestones / review_deliverable 等）遇到**任何异常响应**（含 RESPONSE_SCHEMA_MISMATCH），一律**先只读核对再决定重试**——写操作可能已在服务端落库，盲重试会导致重复建单/重复扣款。核对路径：get_my_orders（订单）→ get_order_detail（详情）→ list_milestones（里程碑），按资源类型就近选择。
 
 ## 硬门禁相关（userConfirmation / confirmed）
 

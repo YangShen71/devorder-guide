@@ -43,7 +43,8 @@ case "${1:-}" in
 esac
 if [[ -n "${TEMP_INSTALL}" ]]; then
   INSTALL_DIR="$(mktemp -d)/devorder-guide"
-  trap 'rm -rf "$(dirname "${INSTALL_DIR}")" "${PKG_TMP:-}"' EXIT   # PKG_TMP 在 [1/4] 打包段定义（临时打包目录，不污染仓库 dist/）
+  # 临时目录清理：rm -rf 在 WorkBuddy safe-delete 拦截下会失败（路径混用），静默降级——临时目录在系统 Temp，重启自清
+  trap 'rm -rf "$(dirname "${INSTALL_DIR}")" "${PKG_TMP:-}" 2>/dev/null || true' EXIT
 fi
 
 # Git Bash 路径 → Windows 路径（Python 需要）
@@ -63,7 +64,14 @@ if [[ "${SKIP_PACKAGE}" != "--skip-package" ]]; then
   echo ""
   echo "[1/4] 重新打包 .skill ..."
   PKG_TMP="$(mktemp -d)"   # 打包到临时目录：verify_install 是验证性打包，写仓库 dist/ 会用当前解释器覆盖发布产物（SHA256SUMS 由 make_artifacts --build 生成，两解释器 zip 字节不同 → 哈希失配）
-  (cd "${ROOT}" && PYTHONUTF8=1 "${PYTHON}" -m src.package_skill . "${PKG_TMP}")
+  # Windows 路径兼容：mktemp 返回 MSYS 路径（如 /tmp/xxx），Windows Python 会把 /tmp 解析为 C:\tmp 而非 Git Bash 临时目录。
+  # 先 cygpath -w 转 Windows 绝对路径再传给 Python，保证打包输出目录与后续校验读取路径一致（沙箱内外语义一致）。
+  if command -v cygpath >/dev/null 2>&1; then
+    PKG_TMP_WIN="$(cygpath -w "${PKG_TMP}")"
+  else
+    PKG_TMP_WIN="${PKG_TMP}"
+  fi
+  (cd "${ROOT}" && PYTHONUTF8=1 "${PYTHON}" -m src.package_skill . "${PKG_TMP_WIN}")
   if command -v cygpath >/dev/null 2>&1; then
     SKILL_ZIP_WIN="$(cygpath -w "${PKG_TMP}/devorder-guide.skill")"
   else
@@ -134,6 +142,7 @@ if [[ "${SKIP_PACKAGE}" == "--skip-package" ]]; then
   assert_install_dir
   DIFFS=$(diff -rq "${INSTALL_DIR}" "${ROOT}" \
     --exclude="__pycache__" --exclude=".pytest_cache" --exclude=".ruff_cache" \
+    --exclude="devorder-guide.session.json" \
     --exclude="dist" --exclude=".git" --exclude="*.pyc" \
     --exclude="s7-final-check.md" \
     --exclude=".rufftmp" --exclude="*.log" --exclude=".vf_tmp.log" --exclude="tests" --exclude="docs" 2>/dev/null | grep -E "^Files|^Only" | wc -l) || true
@@ -146,6 +155,7 @@ if [[ "${SKIP_PACKAGE}" == "--skip-package" ]]; then
     echo "❌ 检测到 ${DIFFS} 个文件差异（安装漂移！）"
     diff -rq "${INSTALL_DIR}" "${ROOT}" \
       --exclude="__pycache__" --exclude=".pytest_cache" --exclude=".ruff_cache" \
+    --exclude="devorder-guide.session.json" \
       --exclude="dist" --exclude=".git" --exclude="*.pyc" \
       --exclude="s7-final-check.md" \
       --exclude=".rufftmp" --exclude="*.log" --exclude=".vf_tmp.log" --exclude="tests" --exclude="docs" 2>/dev/null | grep -E "^Files|^Only" | head -20 || true
@@ -195,6 +205,7 @@ echo ""
 echo "[4/4] 安装版 vs 源码版一致性复验 ..."
 DIFFS=$(diff -rq "${INSTALL_DIR}" "${ROOT}" \
   --exclude="__pycache__" --exclude=".pytest_cache" --exclude=".ruff_cache" \
+    --exclude="devorder-guide.session.json" \
   --exclude="dist" --exclude=".git" --exclude="*.pyc" \
   --exclude="s7-final-check.md" \
   --exclude=".rufftmp" --exclude="*.log" --exclude=".vf_tmp.log" --exclude="tests" --exclude="docs" 2>/dev/null | grep -E "^Files|^Only" | wc -l) || true
@@ -207,6 +218,7 @@ else
   echo "❌ 检测到 ${DIFFS} 个文件差异（安装漂移！）"
   diff -rq "${INSTALL_DIR}" "${ROOT}" \
     --exclude="__pycache__" --exclude=".pytest_cache" --exclude=".ruff_cache" \
+    --exclude="devorder-guide.session.json" \
     --exclude="dist" --exclude=".git" --exclude="*.pyc" \
     --exclude="s7-final-check.md" \
     --exclude=".rufftmp" --exclude="*.log" --exclude=".vf_tmp.log" --exclude="tests" --exclude="docs" 2>/dev/null | grep -E "^Files|^Only" | head -20 || true

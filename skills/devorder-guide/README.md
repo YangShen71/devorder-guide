@@ -25,6 +25,14 @@ devorder-guide/
 bash scripts/check_all.sh    # 一键七连（ruff → 核心自检 → 契约审计 → 命中回归 → 六位一体 → 分发一致性 → fidelity 自检）
 ```
 
+方案甲脚本（v1.5.5 · 单条调用，无需内联写代码）：
+
+```bash
+python scripts/run_gate.py --category event --subtype competition --confidence 0.9 \
+  --slot-fill 0.6 --round 1 --goal-keywords 1 --spec-type dedicated --session-id do_xxx
+python scripts/version_check.py   # 第 0 步版本检查（GO/UPDATE/SKIP 信号）
+```
+
 ## 构建
 
 ```bash
@@ -48,6 +56,42 @@ fidelity CLI 内部已沿用 `sys.stdout.reconfigure(encoding="utf-8")`（与主
 
 当前版本以 `SKILL.md` frontmatter `version` 字段为准（与 `pyproject.toml`、运营端上传表单三方对齐）。版本号采用三段式语义化版本（`主版本.次版本.修订版本`），符合 `skill-package-generation-guide.md` 约定。
 
+- `1.5.5`：输出作用域分离（2026-09-23，PATCH）。`check_copy` 首参收敛为「仅引导话术片段」——**业务内容**（顾问核心回复、需求梳理、品类范围说明、追问、结论）**不再参与** 80 字 / 退路 / 绝对化词校验（此前从文本开头截取计数，业务回复超 80 字即被误判并触发回退替换）；新增骨架业务占位符守卫（`[核心回复]` / `[顾问核心回复]` 未替换即判违规）；回退规则改为「**只回退话术部分，业务内容原样保留**」；`audit_contract` 新增 AST 断言（`check_copy` 首形参名须为 `guide`）；文档 12 处「80 字」表述统一加限定词并修正归类；单测 95 → **100**。引擎基线 `check_copy 89047fb3e370 → ` 变更（`guide_gate` / `contract` 未变）。
+- `1.5.4`：引擎健壮性修复（2026-09-22，PATCH）。代码审查 7 项：`check_platform` 改严格布尔（此前 `'false'`/`1` 等 truthy 值可绕过平台兼容闸）；新增 `_num`/`_dict`/`_list` 类型安全读取，消除 **24 项类型注入崩溃**；`_round_score` 类型守卫；CLI `--confidence`/`--slot-fill` 补 0~1 范围校验；`--active-orders` 补非负校验；`check_frequency_cap` reason 去除引擎未实现的「静默 30 分钟」表述；`rejection_branch` 移除无消费方的冗余 `text` 键；`OPCS_ROLE_TOOLS` fallback 与 `constants.json` 逐项对齐。引擎基线 `guide_gate d69cd32152ee → 4b3e60d3ac0c`。
+- `1.5.3`：内部执行说明泄漏修复（2026-09-22，PATCH）。会话实测事故驱动：输出中出现「执行说明（内部）」段（同时命中判定字段数值 / 英文品类枚举 / 工具调用叙述三类）→ 红线 3 补充真实事故原文示例，并说明 `check_copy` 门禁边界（其校验维度不含脱敏）。
+- `1.5.2`：用户可见输出脱敏（2026-09-22，PATCH）。红线 3 作用域扩展为**全部用户可见输出**（含 `trigger=true` / 降级路径 / 转达 / 诊断路径，取消「只有 trigger=false 才禁」的误读），列明四类禁止内容 + 可删除性测试判据 + 白名单；`references/copy-constraints.md` 新增输出脱敏自检清单。
+- `1.5.1`：速查表与映射精确化（2026-09-22，PATCH）。独立审查发现的文案级问题修正：① 速查表 `dev_growth` 行原列举「技术文章/白皮书」与 `content_writing` 触发词交叠 → 改为目标导向表述（「内容 + 分发到开发者聚集处」），`content_writing` 标注「纯交付，不含分发」；② `references/category-enum.md` 残留旧映射「海报/KV → exposure」→ 改为 `visual_design`；③ 手册映射表标题计数改为不依赖计数的表述。引擎三文件零改动（基线延续 v1.5.0）。
+- `1.5.0`：品类枚举扩展（2026-09-22，MINOR）。新增 6 个需求品类（`software_build`/`content_writing`/`video_production`/`product_testing`/`visual_design`/`hardware_eng`，白名单 5→11），覆盖「造软件/写内容/出视频/做评测/做设计/造硬件」全部需求类型；`description` 重构（150 字符内，8 类需求 + 5 类不触发界定）；「第 2 步：运行确定性引擎」重写（4 步执行顺序 + 输出分派表 + 引擎 11 检查点 + 异常处理 + 降级条件修正）；触发词移除泛词「设计」并补 33 词（实测正例 45/45、反例 0/12）。**引擎白名单经书面授权变更**（红线基线已更新）。
+- `1.4.36`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号递增，内容同 v1.4.35（用于实测自动更新闭环：本地 1.4.35 → 平台 1.4.36 → version_check UPDATE → update_apply 就地替换自动更新）。引擎三文件零改动（hash 硬闸）。
+- `1.4.35`：就地替换修复（2026-09-14，PATCH）。真实事故驱动：三段式 move 在 Windows 上因进程 cwd 锁定 skill_dir 目录导致 os.rename 失败、shutil.move 静默回退 copytree+rmtree 把旧版清空（主目录只剩空 scripts、回滚失效）→ 改为「完整备份→就地清空→就地复制」+ 可靠回滚，全程不移动/删除 skill_dir 根目录；update_apply 内部 chdir 到系统临时目录 + skill_dir abspath 固化；新增 cwd 锁定回归 + 回滚失败两用例（单测 4→6）。引擎三文件零改动（hash 硬闸）。
+- `1.4.34`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.33（连续闭环复测）。引擎三文件零改动（hash 硬闸）。
+- `1.4.34`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.33（连续闭环复测）。引擎三文件零改动（hash 硬闸）。
+- `1.4.33`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.32（连续闭环复测）。引擎三文件零改动（hash 硬闸）。
+- `1.4.33`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.32（连续闭环复测）。引擎三文件零改动（hash 硬闸）。
+- `1.4.32`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.31（用于实测三段式原子替换修复后的完整自动更新闭环）。引擎三文件零改动（hash 硬闸）。
+- `1.4.32`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.31（用于实测三段式原子替换修复后的完整自动更新闭环）。引擎三文件零改动（hash 硬闸）。
+- `1.4.31`：原子性缺口修复（2026-09-14，PATCH）。真实事故驱动：update_apply「move 旧版→copytree 新包」两步间进程中断导致主目录残缺（只剩空 scripts、回滚无法执行）→ **三段式原子替换**（新包先就位临时目录→move 旧版→单步 move 新目录；崩溃窗口缩至单步，任一时点可人工恢复）；失败路径补 staging 清理。引擎三文件零改动（hash 硬闸）。
+- `1.4.31`：原子性缺口修复（2026-09-14，PATCH）。真实事故驱动：update_apply「move 旧版→copytree 新包」两步间进程中断导致主目录残缺（只剩空 scripts、回滚无法执行）→ **三段式原子替换**（新包先就位临时目录→move 旧版→单步 move 新目录；崩溃窗口缩至单步，任一时点可人工恢复）；失败路径补 staging 清理。引擎三文件零改动（hash 硬闸）。
+- `1.4.30`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.29（用于实测「检测 UPDATE → 自动执行 update_apply」完整闭环）。引擎三文件零改动（hash 硬闸）。
+- `1.4.30`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.29（用于实测「检测 UPDATE → 自动执行 update_apply」完整闭环）。引擎三文件零改动（hash 硬闸）。
+- `1.4.29`：信号契约全覆盖（2026-09-14，PATCH）。① 脚本 20 信号 × 文档对账：补 NO_VERSION_FOUND/USAGE_ERROR 两行到 detail 结论表；② update_apply docstring 补 NETWORK_FAIL/INTERNAL_ERROR/UPDATE_TIMEOUT/USAGE_ERROR；③ 平台线失败兜底段 SHA256 残留澄清（SHA256 属开源线专用，平台线以版本校验为等价护栏）。引擎三文件零改动（hash 硬闸）。
+- `1.4.29`：信号契约全覆盖（2026-09-14，PATCH）。① 脚本 20 信号 × 文档对账：补 NO_VERSION_FOUND/USAGE_ERROR 两行到 detail 结论表；② update_apply docstring 补 NETWORK_FAIL/INTERNAL_ERROR/UPDATE_TIMEOUT/USAGE_ERROR；③ 平台线失败兜底段 SHA256 残留澄清（SHA256 属开源线专用，平台线以版本校验为等价护栏）。引擎三文件零改动（hash 硬闸）。
+- `1.4.28`：会话状态保护 + 双源漂移清零（2026-09-14，PATCH）。① update_apply 删除替代会连带删除用户 session.json（拒绝流/频率帽状态归零）→ 内存备份迁移修复；trash 时间戳微秒+pid 防并发撞名；② detail 残留 75 行旧 bash 更新段（用户手写脚本根源）→ 删除并改指 update_apply.py（唯一权威），detail 101→27 行；③ 测试用例 4 补 session 迁移断言。引擎三文件零改动（hash 硬闸）。
+- `1.4.28`：会话状态保护 + 双源漂移清零（2026-09-14，PATCH）。① update_apply 删除替代会连带删除用户 session.json（拒绝流/频率帽状态归零）→ 内存备份迁移修复；trash 时间戳微秒+pid 防并发撞名；② detail 残留 75 行旧 bash 更新段（用户手写脚本根源）→ 删除并改指 update_apply.py（唯一权威），detail 101→27 行；③ 测试用例 4 补 session 迁移断言。引擎三文件零改动（hash 硬闸）。
+- `1.4.27`：UPDATE 宿主交互面修复（2026-09-14，PATCH）。端到端实测暴露并修复：① 信号乱序（子进程 stdout 继承与父 print 缓冲乱序）→ capture_output 按序透传；② 更新失败 exit 1 违背 fail-closed → **return 0 不阻断**（旧版可用静默继续）+ UPDATE_TIMEOUT（120s）兜底；channels.md 失败兜底段补 update_apply 失败信号语义。引擎三文件零改动（hash 硬闸）。
+- `1.4.27`：UPDATE 宿主交互面修复（2026-09-14，PATCH）。端到端实测暴露并修复：① 信号乱序（子进程 stdout 继承与父 print 缓冲乱序）→ capture_output 按序透传；② 更新失败 exit 1 违背 fail-closed → **return 0 不阻断**（旧版可用静默继续）+ UPDATE_TIMEOUT（120s）兜底；channels.md 失败兜底段补 update_apply 失败信号语义。引擎三文件零改动（hash 硬闸）。
+- `1.4.26`：深度审查修复（2026-09-14，PATCH）。version_check docstring 移除已删除的 fresh 分支描述；update_apply 补 dl 完整 URL 防御；**新增 test_update_apply.py 4 用例**（USAGE_ERROR/VERSION_MISMATCH/ZIP_SLIP/成功路径——update_apply 零测试缺口关闭）。引擎三文件零改动（hash 硬闸）。
+- `1.4.26`：深度审查修复（2026-09-14，PATCH）。version_check docstring 移除已删除的 fresh 分支描述；update_apply 补 dl 完整 URL 防御；**新增 test_update_apply.py 4 用例**（USAGE_ERROR/VERSION_MISMATCH/ZIP_SLIP/成功路径——update_apply 零测试缺口关闭）。引擎三文件零改动（hash 硬闸）。
+- `1.4.25`：自动更新执行层固化（2026-09-14，MINOR）。方案 A：新增 scripts/update_apply.py（下载→校验→替换→收尾三件套，ZIP_SLIP 防护 + 版本校验 + 删除替代可回滚）；version_check.py 检测到 UPDATE 时自动调用（结束「检测与执行分离」缺口）；SKILL.md/channels/detail 同步「自动执行」表述。引擎三文件零改动（hash 硬闸）。
+- `1.4.24`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.23（用于实测节流移除后的自动更新链路）。引擎三文件零改动（hash 硬闸）。
+- `1.4.24`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.23（用于实测节流移除后的自动更新链路）。引擎三文件零改动（hash 硬闸）。
+- `1.4.23`：模型检查层节流移除（2026-09-14，PATCH）。审计 DEVORDER-AUDIT-2026-09-14 根因修复：version_check.py 删除 24h 节流短路——**每次加载使用 Skill 必查网络**（节流曾导致「平台已发版、本地漏检」事件）；lastcheck 降级为诊断记录；网络异常仍 fail-closed 静默继续。测试用例 2 改为「必查网络」硬断言。引擎三文件零改动（hash 硬闸）。
+- `1.4.23`：模型检查层节流移除（2026-09-14，PATCH）。审计 DEVORDER-AUDIT-2026-09-14 根因修复：version_check.py 删除 24h 节流短路——**每次加载使用 Skill 必查网络**（节流曾导致「平台已发版、本地漏检」事件）；lastcheck 降级为诊断记录；网络异常仍 fail-closed 静默继续。测试用例 2 改为「必查网络」硬断言。引擎三文件零改动（hash 硬闸）。
+- `1.4.22`：测试版本（2026-09-14，PATCH）。纯 PATCH 版本号升级，内容同 v1.4.21（用于实测第 0 步自动更新链路）。引擎三文件零改动（hash 硬闸）。
+- `1.4.21`：SKILL.md 深度压缩 v2（2026-09-14，PATCH）。正文 518→~361 行（-30%）：第 0 步低频段外移 channels.md；红线 5 条合并「红线自检区」18 行（细则外移 output-redlines.md + 不确定先读硬规则）；第 4 步进阶 11 段外移 advanced-consult.md；第 4.5 步呈现契约压缩 77→13 行（7 条渲染硬约束全保留）；场景 2 卡片骨架内嵌第 3 步（41 行逐字节 + 唯一权威标注，免除 templates.md 385 行读取）；detail 压缩 187→104（合并脚本段删除，单源唯一权威 version_check.py）；测试验收段外移 qa-gates.md。引擎三文件零改动（hash 硬闸）。
+- `1.4.20`：MCP 适配深度排查修复（2026-09-14，PATCH）。全面排查发现并修复 5 项：① opcs-tools-reference「list_orders/list_bids/select_bid = 接单路径/竞标/中标」口径错误（契约实锤三者均为发单方能力：公共广场/查看报名/选定接单方）；② 同文件错误码表补 3 个服务端新码；③ SKILL.md 补低频工具指针（此前 13 个工具无指引入口，历史 BUG-14/25/26 同类断链）；④ **SKILL.md 补写工具 userConfirmation 硬门禁规则**（服务端 13 个写工具全部强制字面量 true，白名单内 9 个写工具覆盖：create_order/publish_plan/retry_publish/select_bid/review_deliverable/configure_milestones/add_milestone/update_milestone/delete_milestone——此前正文无此规则，属实质安全缺口）；⑤ reference 头部口径同步实测锚定。引擎三文件零改动（hash 硬闸）。
+- `1.4.19`：MCP 适配对齐（2026-09-11，PATCH）。工具口径实测锚定——发单方身份面板实测 26/26 与 allowed-tools 集合 diff 零增删零多余（接单方身份可见 17 个属独立接单 Skill）；SKILL.md compatibility/L109 口径升级为「身份可见集」表述；references/opcs-errors.md 补服务端 3 个新错误码（INVALID_ARGUMENT / RESPONSE_SCHEMA_MISMATCH「写操作可能已成功、先只读核对再重试」防重复写 / INTERNAL_ERROR 携 requestId）；constants.json opcs_role_tool_map 完整性维护（issuer 17→26、picker 5→17，只增不删，12 场景核心自检零行为影响）。引擎三文件零改动（hash 硬闸）。
+- `1.4.18`：方案甲+丙「确定性脚本化 + ctx 最小集」落地（2026-09-11，PATCH）。工具调用 10→3、模型生成代码 token→0、首轮 ctx 20→12+subtype、第 0 步版本检查脚本化。新增 `scripts/run_gate.py`（闸门单条 CLI + session.json 状态自动读写，拒绝流三态/同类冷却/频率帽语义完整）与 `scripts/version_check.py`（合并版单脚本逐行迁移，输出契约逐字节一致）；SKILL.md 第 2 步改写为参数速查表 + 首轮最小集（危险字段段/按输出执行段原文保留，接单路径边界保留）、第 0 步 4 处「合并脚本」引用收敛；ruff 门禁收编 src/ + scripts/；pytest 69→85（+16 用例）；dist 33→35 文件。引擎三文件零改动（hash 硬闸）。
 - `1.4.7`：更新改为删除替代（2026-08-26，PATCH）。用户明确要求「旧版本删除替代、不留备份」——更新成功后旧版被删除（替代而非备份），并清理历史遗留 `.bak`/`.old` 目录，文件系统只剩唯一主目录，从物理上根除宿主误识别备份目录的问题。改动：SKILL.md 第 0 步脚本 + update.py do_update 改为「move 到临时废弃位 → 新包就位 → 删除旧版 + 清理历史目录」；失败仍自动回滚；update.py --rollback 兼容 `.bak`/`.old` 两前缀。引擎零改动。
 - `1.4.6`：边界与一致性修复（2026-08-26，PATCH）。全面严格检查发现 3 项并修复：①【P2】DIR_IS_BACKUP 时自动更新会写错位置（宿主从备份目录加载时 SKILL_DIR 指向 .bak，若继续自动更新会把备份目录当主目录覆盖、加剧错乱——已改为跳过自动更新）；②【P3】扁平包 move 临时目录边界 bug（pkg 即临时目录本身时 move 会导致清理报错——加 pkg==d 判断，扁平包用 copytree）；③【P2】references 模型名规则强度不一致（"默认隐藏" vs 主文件"必须隐藏"——对齐为"必须隐藏"）。引擎零改动。
 - `1.4.5`：回滚失效回归修复 + 原子替换（2026-08-26，PATCH）。严格排查 v1.4.4 改动发现 4 个 Bug 并修复：①【P1】update.py `--rollback` 回滚功能失效（do_update 备份已移到 skill-backups/，但 do_rollback 仍只在 skills 目录 glob——已改扫两处）；②【P2】平台线脚本非原子替换（逐文件 copytree/copy2 → 改 move 原子替换）；③【P2】平台线脚本不删残留文件（move 后旧目录整体清空，无残留）；④【P3】SKILL.md 文档滞后（"旧版保留于 .bak-*" → "skill-backups/"）。引擎零改动。

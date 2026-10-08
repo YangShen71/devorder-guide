@@ -1,6 +1,6 @@
 # DevOrder MCP 工具参考
 
-> **配套文件**：SKILL.md frontmatter（allowed-tools 已扩展至 26 工具，命名空间 DevOrder__*）
+> **配套文件**：SKILL.md frontmatter（allowed-tools 26 工具，发单方身份实测锚定 2026-09-11，命名空间 DevOrder__*）
 > **约定纪律（§1）**：本文**不固化工具参数 schema**——工具参数以当前 MCP Server 返回的 schema 为准；`allowed-tools` 只列工具名（白名单），不列参数结构。调用时参数名/类型/必填/默认值一律以 MCP 服务端实时返回的 schema 为准，本文不预置参数表。
 > **匹配原则**：方法名与 MCP 服务定义 100% 一致；参数细节不在此固化（防 schema 漂移后本文误导）。
 
@@ -40,7 +40,9 @@
 | `get_my_orders` | 查我的订单列表 | 只读 |
 | `get_order_detail` | 公开订单详情（脱敏版） | 任何角色可查 |
 | `get_my_order_detail` | 当事方订单详情（含私有字段） | 当事方身份；非当事方 404 |
-| `list_orders` / `list_bids` / `select_bid` | 订单广场/竞标/中标 | 接单路径 |
+| `list_orders` | 公共订单广场（公开脱敏） | 浏览/行情参考；全角色可查 |
+| `list_bids` | 查看本人订单的报名 | 发单方查看已发布订单的竞标报名情况 |
+| `select_bid` | 选定接单方（发单方写操作） | userConfirmation 硬门禁；选定后进入履约 |
 | `add_milestone` 等 5 工具 | 里程碑增删改查 | 建单后配置 |
 | `draft_agreement` / `get_agreement` / `review_deliverable` / `get_bill` | 协议/交付/账单 | 交易闭环 |
 | `get_my_qualification` | 资质与权限前置检查 | 写操作前查 canCreateOrder/canBidOrder |
@@ -62,6 +64,9 @@
 | `422 BUSINESS_RULE` | 业务规则违反 | 提示补 comment 后重试 |
 | `429 RATE_LIMIT` | 调用超限 | 静默 1 分钟（L4 防线） |
 | `500/503` | 服务端异常 | 提示重试或回 Web 端 |
+| `INVALID_ARGUMENT` | 工具参数不符合契约 | 按实时 schema 重传；禁止臆造参数重试 |
+| `RESPONSE_SCHEMA_MISMATCH` | 响应校验失败（写操作可能已成功） | 先只读核对再决定重试（详见 opcs-errors.md） |
+| `INTERNAL_ERROR` | 服务端内部异常 | 记录 requestId 供排查；不自动重试 |
 
 ---
 

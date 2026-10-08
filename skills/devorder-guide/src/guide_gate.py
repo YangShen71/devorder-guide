@@ -11,7 +11,7 @@
 
 设计基线（修改需走方案评审，v1.4 §0.3）：
 - 阈值 0.5；置信度硬闸 0.5；全局频率帽 3 次/小时；同类冷却 10 分钟
-- 强度规则（v0.5.22 阈值下调后）：拒绝→weak（需新信号）；category 命中 5 品类且 score≥0.5 → strong；
+- 强度规则（v0.5.22 阈值下调后）：拒绝→weak（需新信号）；category 命中 11 品类且 score≥0.5 → strong；
             score≥0.6 且 slotFill≥0.65 → strong；score≥0.5 → medium
 """
 
@@ -20,7 +20,19 @@ import json
 import sys
 
 # ---------------- 常量 ----------------
-VALID_CATEGORIES = {"dev_growth", "user_acquisition", "event", "community", "exposure"}
+VALID_CATEGORIES = {
+    "dev_growth",
+    "user_acquisition",
+    "event",
+    "community",
+    "exposure",
+    "software_build",
+    "content_writing",
+    "video_production",
+    "product_testing",
+    "visual_design",
+    "hardware_eng",
+}
 DIAGNOSIS_CATEGORY = "consult_diagnosis"
 INTENTS = {"issue_order", "pick_order", "consult", "chitchat", "service_query"}
 DIAGNOSIS_MAX_PER_SESSION = 2  # 诊断提示 ≤2 次/会话（diagnosis-path.md，2026-08-05 P0-1 引擎强制）
@@ -71,13 +83,36 @@ def _c(ctx, key, default):
     return ctx.get(key, default)
 
 
+# ---------------- 类型安全读取（2026-09-22 健壮性修复） ----------------
+# 背景：ctx 由外部（CLI / 宿主）构造，字段类型不受信任时直接参与比较或方法调用会
+# 抛 TypeError / AttributeError（实测 24 项）。以下辅助函数统一归一化，非期望类型即取默认值。
+def _num(ctx, key, default):
+    """数值字段：非数值（None / str / list / dict / bool）→ default。"""
+    v = ctx.get(key, default)
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return default
+    return v
+
+
+def _dict(ctx, key):
+    """字典字段：非 dict → {}（防 .get 属性错误）。"""
+    v = ctx.get(key, {})
+    return v if isinstance(v, dict) else {}
+
+
+def _list(ctx, key):
+    """列表字段：非 list / tuple → []（防 len() 类型错误）。"""
+    v = ctx.get(key, [])
+    return list(v) if isinstance(v, (list, tuple)) else []
+
+
 # ---------------- S0：全局频率帽 ----------------
 def check_frequency_cap(ctx):
-    count = _c(ctx, "guideCountThisHour", 0)
+    count = _num(ctx, "guideCountThisHour", 0)
     if count >= GLOBAL_CAP_PER_HOUR:
         return (
             False,
-            f"全局频率帽：本小时已展示 {count} 次触发（≥{GLOBAL_CAP_PER_HOUR}），全局静默 30 分钟",
+            f"全局频率帽：本小时已展示 {count} 次触发（≥{GLOBAL_CAP_PER_HOUR}），全局静默",
         )
     return True, None
 
@@ -89,7 +124,7 @@ def check_l4_rate_limit(ctx):
     业务依据：DevOrder 业务需求报告 §5.4.5 开放层约束「MCP 接口调用有速率限制
     （建议：100 次/分钟/令牌），防止恶意刷单或数据爬取」。
     """
-    calls_last_minute = _c(ctx, "opcsCallsLastMinute", 0)
+    calls_last_minute = _num(ctx, "opcsCallsLastMinute", 0)
     if calls_last_minute >= L4_RATE_LIMIT_PER_MIN:
         return (
             False,
@@ -107,7 +142,7 @@ def check_circuit_breaker(ctx):
     以字段级实现会话内版：模型在用户拒绝时递增 consecutiveRejections（SKILL.md 第 3 步
     已要求记录 rejectionFlags），≥2 即触发熔断，本会话不再触发任何。
     """
-    rejects = _c(ctx, "consecutiveRejections", 0)
+    rejects = _num(ctx, "consecutiveRejections", 0)
     if rejects >= 2:
         return (
             False,
@@ -118,8 +153,9 @@ def check_circuit_breaker(ctx):
 
 # ---------------- S0.5：平台兼容性 ----------------
 def check_platform(ctx):
-    # fail-closed：缺字段默认 False（与契约 default=false 一致，2026-08-05 实证核查修复）
-    if not _c(ctx, "platformCompatible", False):
+    # fail-closed：仅显式 True 视为兼容（2026-09-22 修复：此前 `not v` 判断会让 'false'
+    # /1/[..] 等 truthy 值绕过平台兼容闸——字符串 'false' 属 truthy，实测曾放行）
+    if ctx.get("platformCompatible", False) is not True:
         return False, "MCP 协议版本不兼容，静默降级为纯对话模式"
     return True, None
 
@@ -144,8 +180,12 @@ def intent_split(ctx):
 def check_hard_gates(ctx):
     category = _c(ctx, "category", "unknown")
 
-    # R1 同类冷却
-    last_same = _c(ctx, "lastSameCategoryMinutesAgo", 999)
+    # R1 同类冷却（v1.4.14 修复：显式处理 0/None 语义模糊值——事故「传 0 被误判刚触发→强需求静默」，
+    # 传 None 会 TypeError。0/None 统一保守视为「未触发过同类」，放过冷却，仅防真实 <10 分钟冷却）
+    # 2026-09-22：改用 _num，非数值类型取安全值 999；负数（无意义）同样归一为 999
+    last_same = _num(ctx, "lastSameCategoryMinutesAgo", 999)
+    if last_same == 0 or last_same < 0:
+        last_same = 999
     if last_same < CATEGORY_COOLDOWN_MINUTES:
         return (
             False,
@@ -157,10 +197,10 @@ def check_hard_gates(ctx):
         return False, f"R4 阶段不合法：phase={_c(ctx, 'phase', 'gather')}，仅 gather/ready 允许触发"
 
     # R5 需求可信（发单路径）
-    if _c(ctx, "confidence", 0.0) < CONFIDENCE_GATE:
+    if _num(ctx, "confidence", 0.0) < CONFIDENCE_GATE:
         return (
             False,
-            f"R5 需求置信度不足：confidence={_c(ctx, 'confidence', 0.0)} < {CONFIDENCE_GATE}",
+            f"R5 需求置信度不足：confidence={_num(ctx, 'confidence', 0.0)} < {CONFIDENCE_GATE}",
         )
     if category not in VALID_CATEGORIES:
         return (
@@ -169,7 +209,7 @@ def check_hard_gates(ctx):
         )
 
     # R6 非冲突场景
-    if len(_c(ctx, "activeOrders", [])) > 0:
+    if len(_list(ctx, "activeOrders")) > 0:
         return False, "R6 存在进行中订单，避免干扰交易"
 
     # R7 角色匹配
@@ -186,19 +226,18 @@ def check_hard_gates(ctx):
 # ---------------- S3：拒绝分支 ----------------
 def rejection_branch(ctx):
     category = _c(ctx, "category", "unknown")
-    flags = _c(ctx, "rejectionFlags", {})
+    flags = _dict(ctx, "rejectionFlags")
     if flags.get(category, False):
         if not _c(ctx, "hasNewDemandSignal", False):
             return None, f"拒绝分支：{category} 已被拒绝且无新需求信号 → 彻底安静"
         # v1.5 修复：拒绝后 weak 本会话内总计 ≤ 1 次（postRejectionWeakShown 已给过即不再给）
-        shown = _c(ctx, "postRejectionWeakShown", {})
+        shown = _dict(ctx, "postRejectionWeakShown")
         if shown.get(category, False):
             return (
                 None,
                 f"拒绝分支：{category} 的拒绝后 weak 已放行 1 次（postRejectionWeakShown），后续新信号不再触发",
             )
         return {
-            "text": "weak",
             "tool": None,
             "intensity": "weak",
             "score": 0.0,
@@ -209,7 +248,8 @@ def rejection_branch(ctx):
 
 # ---------------- S4：打分 ----------------
 def _round_score(round_no):
-    if round_no is None:
+    # 2026-09-22：类型守卫——非数值（None/str/list）统一按 0.4（中性）计，避免比较抛 TypeError
+    if not isinstance(round_no, (int, float)) or isinstance(round_no, bool):
         return 0.4
     if 3 <= round_no <= 15:
         return 1.0
@@ -228,7 +268,7 @@ def compute_guide_score(ctx):
     elif _c(ctx, "goalKeywords", False):
         pain = 0.7
 
-    slot = _c(ctx, "slotFill", 0.0)
+    slot = _num(ctx, "slotFill", 0.0)
     if slot >= 0.8:
         slot_score = 1.0
     elif slot >= 0.5:
@@ -241,13 +281,13 @@ def compute_guide_score(ctx):
         + GUIDE_WEIGHTS["pain"] * pain
         + GUIDE_WEIGHTS["slot_fill"] * slot_score
         + GUIDE_WEIGHTS["history"] * HISTORY_FIXED
-        + GUIDE_WEIGHTS["round"] * _round_score(_c(ctx, "round", None))
+        + GUIDE_WEIGHTS["round"] * _round_score(_num(ctx, "round", None))
     )
     return round(score, 3)
 
 
 def compute_pick_score(ctx):
-    match_count = _c(ctx, "matchedOrderCount", 0)
+    match_count = _num(ctx, "matchedOrderCount", 0)
     if match_count >= 3:
         skill = 1.0
     elif match_count >= 1:
@@ -263,14 +303,14 @@ def compute_pick_score(ctx):
         PICK_WEIGHTS["skill_match"] * skill
         + PICK_WEIGHTS["order_quality"] * quality
         + PICK_WEIGHTS["history"] * HISTORY_FIXED
-        + PICK_WEIGHTS["round"] * _round_score(_c(ctx, "round", None))
+        + PICK_WEIGHTS["round"] * _round_score(_num(ctx, "round", None))
     )
     return round(score, 3)
 
 
 # ---------------- S5：强度选择 ----------------
 def pick_intensity(score, ctx):
-    flags = _c(ctx, "rejectionFlags", {})
+    flags = _dict(ctx, "rejectionFlags")
     category = _c(ctx, "category", "unknown")
     if flags.get(category, False):
         return "weak", "规则① 拒绝后 → weak"
@@ -297,13 +337,26 @@ def pick_intensity(score, ctx):
 # - list_bids 为「订单客户查看本人订单」→ 归 issuer
 # - 所有写工具含 userConfirmation 硬门禁（触发层在第 3 重确认后传 true，红线⑨）
 # 2026-08-05 P0-2：OPCS_ROLE_TOOLS 从 constants.json opcs_role_tool_map 加载（唯一口径）
+# 2026-09-22 修复：fallback 此前与 constants.json 不同步（issuer 缺 opcs_consult / draft_plan /
+# publish_plan / get_advisor_session / plan_document / retry_publish / revise_order_draft /
+# search_qualified_contractors / get_my_qualification / list_my_certification_tags / list_orders
+# 等 12 项）——constants.json 缺失时 fallback 生效会导致工具面收窄。现与 constants.json 逐项对齐。
 OPCS_ROLE_TOOLS = _CFG.get(
     "opcs_role_tool_map",
     {
         "issuer": [
+            "opcs_consult",
+            "opcs_draft_plan",
+            "opcs_publish_plan",
+            "opcs_get_advisor_session",
+            "opcs_revise_order_draft",
+            "opcs_retry_publish",
+            "opcs_plan_document",
             "opcs_create_order",
             "opcs_get_my_orders",
+            "opcs_get_my_order_detail",
             "opcs_get_order_detail",
+            "opcs_list_orders",
             "opcs_list_bids",
             "opcs_select_bid",
             "opcs_add_milestone",
@@ -315,6 +368,9 @@ OPCS_ROLE_TOOLS = _CFG.get(
             "opcs_get_agreement",
             "opcs_review_deliverable",
             "opcs_get_bill",
+            "opcs_get_my_qualification",
+            "opcs_list_my_certification_tags",
+            "opcs_search_qualified_contractors",
         ],
         "picker": [
             "opcs_list_orders",
@@ -322,6 +378,18 @@ OPCS_ROLE_TOOLS = _CFG.get(
             "opcs_list_milestones",
             "opcs_get_agreement",
             "opcs_get_bill",
+            "opcs_bid_order",
+            "opcs_claim_order",
+            "opcs_confirm_all_milestones",
+            "opcs_confirm_milestone",
+            "opcs_get_my_order_detail",
+            "opcs_get_my_orders",
+            "opcs_get_my_qualification",
+            "opcs_get_payout",
+            "opcs_get_recommendations",
+            "opcs_get_tool_resources",
+            "opcs_list_my_certification_tags",
+            "opcs_submit_deliverable",
         ],
         "unknown": ["opcs_list_orders"],
         "consult": [],
@@ -367,18 +435,22 @@ def pick_order_gate(ctx):
             "score": 0.0,
             "reason": f"接单路径 R4：phase={phase} 非触发阶段（gather/ready），静默",
         }
-    # R1 同类冷却（order_pick 视为一个类别）
-    if _c(ctx, "lastSameCategoryMinutesAgo", 999) < CATEGORY_COOLDOWN_MINUTES:
+    # R1 同类冷却（order_pick 视为一个类别；v1.4.14 修复：0/None 兜底同发单路径，防误伤首次需求）
+    # 2026-09-22：改用 _num，非数值取安全值 999；负数归一为 999
+    _last_pick = _num(ctx, "lastSameCategoryMinutesAgo", 999)
+    if _last_pick == 0 or _last_pick < 0:
+        _last_pick = 999
+    if _last_pick < CATEGORY_COOLDOWN_MINUTES:
         return {"trigger": False, "score": 0.0, "reason": "接单路径 R1：同类冷却中"}
     # R5 接单版：匹配订单 ≥ 1
-    if _c(ctx, "matchedOrderCount", 0) < 1:
+    if _num(ctx, "matchedOrderCount", 0) < 1:
         return {"trigger": False, "score": 0.0, "reason": "接单路径 R5：匹配订单数为 0，静默"}
     # 拒绝分支（order_pick）——2026-08-05 A-2 修复：拒绝后新信号 → weak + 无入口（对齐发单 rejection_branch）
-    flags = _c(ctx, "rejectionFlags", {})
+    flags = _dict(ctx, "rejectionFlags")
     if flags.get("order_pick", False) and not _c(ctx, "hasNewDemandSignal", False):
         return {"trigger": False, "score": 0.0, "reason": "接单路径：已被拒绝且无新信号"}
     # v1.5 修复：拒绝后 weak 总计 ≤ 1 次
-    if flags.get("order_pick", False) and _c(ctx, "postRejectionWeakShown", {}).get(
+    if flags.get("order_pick", False) and _dict(ctx, "postRejectionWeakShown").get(
         "order_pick", False
     ):
         return {
@@ -479,7 +551,7 @@ def guide_gate(ctx):
     if not ok:
         return {"trigger": False, "score": 0.0, "reason": msg}
     # S3 拒绝分支（拒绝后不再打分，v1.5 语义：分支结果即最终结果，禁止落入 S4 打分）
-    if _c(ctx, "rejectionFlags", {}).get(_c(ctx, "category", "unknown"), False):
+    if _dict(ctx, "rejectionFlags").get(_c(ctx, "category", "unknown"), False):
         result, msg = rejection_branch(ctx)
         if result is not None:
             return {"trigger": True, "path": "issue_order", **result}

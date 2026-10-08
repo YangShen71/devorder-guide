@@ -65,7 +65,17 @@ def package(skill_dir: Path, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     name = skill_dir.name
     target = out_dir / f"{name}.skill"
-    excluded = {".pytest_cache", "__pycache__", "dist", ".git", ".ruff_cache", "tests"}
+    excluded = {
+        ".pytest_cache",
+        "__pycache__",
+        "dist",
+        ".git",
+        ".ruff_cache",
+        "tests",
+        "devorder-guide.session.json",
+        "devorder-guide.lastcheck",
+        "devorder-guide.current",
+    }
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
         for p in sorted(skill_dir.rglob("*")):
             rel = p.relative_to(skill_dir)

@@ -28,13 +28,12 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 | 进度 `N/M = X%` | 信息全齐度 | `6/9 = 67% · 第 3 步` |
 | 引用块 `> ` | 顾问 reply 原文 | `> 明白，明年3月那场会...` |
 | 阶段徽章 🟢🟡🔴 | phase 状态 | `🟢 phase=ready · 第 4 步 · ▰▰▰▰▱`（5 段能量条：第 N 步填 N 个 ▰，其余 ▱；🟢 ready 时全 ▰）|
-| 工具消费 | 用时 | `🛠️ 0.64 token` |
 
 ### 必含元数据（便于回溯）
 
 - 会话 ID：`sessionId=do_xxx...`
 - 阶段进度：`已确认 N/M · 阶段名`
-- 工具消费（如返回；**模型名称必须隐藏**——任何位置任何形式，见 SKILL.md「红线 1」）
+- **模型名称必须隐藏**——任何位置任何形式，见 SKILL.md「红线 1」
 
 ### 模板
 
@@ -129,7 +128,7 @@ consult/draft_plan/publish_plan 返回后，**必须**完整呈现以下区块�
 | 规则 | 触发条件 | 强度 | 入口 | 适用场景 |
 |---|---|---|---|---|
 | ① 拒绝后 | category ∈ rejectionFlags | weak | 无 | 需新信号才再触发 |
-| **②' category 命中即 strong** | **category ∈ 订单平台 5 品类（dev_growth/user_acquisition/event/community/exposure）且 score ≥ 0.5** | **strong** | **明确入口（直接连接订单平台）** | 用户表达意图 + 与订单平台强相关 |
+| **②' category 命中即 strong** | **category ∈ 订单平台 11 品类（dev_growth/user_acquisition/event/community/exposure/software_build/content_writing/video_production/product_testing/visual_design/hardware_eng）且 score ≥ 0.5** | **strong** | **明确入口（直接连接订单平台）** | 用户表达意图 + 与订单平台强相关 |
 | ③ score + slotFill 双高 | score ≥ 0.6 且 slotFill ≥ 0.65 | strong | 明确入口 | 信息齐全 |
 | ④ medium | score ≥ 0.5（不命中以上）| medium | 1 个可选入口 | 需求明确但未强烈表达行动意愿 |
 | 默认 | score < 0.5 | 不触发 | — | 信息太弱 |

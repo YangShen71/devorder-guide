@@ -37,10 +37,11 @@ plugins/
 !skills/devorder-guide/
 
 # 用户本地工作副本散件（根目录技能文件夹，T1 历史遗留复现，不入库）
-configs/
-evals/
-src/
+# 前导斜杠必须保留：无斜杠会按任意层级匹配，误伤 skills/devorder-guide/ 下的同名目录
+/configs/
+/evals/
+/src/
 /scripts/
-references/
+/references/
 /pyproject.toml
 skill-*.md

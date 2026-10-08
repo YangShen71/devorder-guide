@@ -26,14 +26,35 @@
    "opcs_draft_agreement",
    "opcs_get_agreement",
    "opcs_review_deliverable",
-   "opcs_get_bill"
+   "opcs_get_bill",
+   "opcs_get_advisor_session",
+   "opcs_get_my_order_detail",
+   "opcs_get_my_qualification",
+   "opcs_list_my_certification_tags",
+   "opcs_list_orders",
+   "opcs_plan_document",
+   "opcs_retry_publish",
+   "opcs_revise_order_draft",
+   "opcs_search_qualified_contractors"
   ],
   "picker": [
    "opcs_list_orders",
    "opcs_get_order_detail",
    "opcs_list_milestones",
    "opcs_get_agreement",
-   "opcs_get_bill"
+   "opcs_get_bill",
+   "opcs_bid_order",
+   "opcs_claim_order",
+   "opcs_confirm_all_milestones",
+   "opcs_confirm_milestone",
+   "opcs_get_my_order_detail",
+   "opcs_get_my_orders",
+   "opcs_get_my_qualification",
+   "opcs_get_payout",
+   "opcs_get_recommendations",
+   "opcs_get_tool_resources",
+   "opcs_list_my_certification_tags",
+   "opcs_submit_deliverable"
   ],
   "unknown": [
    "opcs_list_orders"

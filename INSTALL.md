@@ -43,7 +43,7 @@
 
 ## §5 各工具触发方式（安装完怎么用）
 
-- Claude Code / Codex / Cursor / Copilot：直接对话表达开发者服务需求（开发者增长/用户招募/内容创作/内容分发/广告投放/技术会议/开发者大赛/训练营/线上实操/线下活动/社区运营），description 命中即自动触发
+- Claude Code / Codex / Cursor / Copilot：直接对话表达开发者服务需求（办活动/拉用户/了解产品/做社区/曝光/造软件/写内容/出视频/做评测/做设计/造硬件），description 命中即自动触发
 - Kimi Code：对话表达需求，或 `/skill:devorder-guide` 手动调用
 - OpenClaw：对话表达需求，或在 Web UI 里说明想用「DevOrder 对话引导」技能
 - WorkBuddy / TRAE：对话触发；TRAE 需确认技能开关已打开（设置 → 技能与命令）

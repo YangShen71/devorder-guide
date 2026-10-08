@@ -74,6 +74,35 @@ def assert_fidelity_mode_present() -> list[str]:
     return []
 
 
+def assert_guide_scope_present() -> list[str]:
+    """v1.5.5 验收：check_copy 首形参必须命名为 `guide`（作用域收敛）。
+
+    首参只允许是「引导话术片段」——业务内容（顾问核心回复等）不得传入，
+    否则会被计入 80 字/退路/绝对化词检查而误判。用 AST 断言形参名：
+    形参名即语义契约，改名即代表作用域约定被破坏。
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+    src_path = repo_root / "src" / "check_copy.py"
+    try:
+        tree = ast.parse(src_path.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError) as e:
+        return [f"[FAIL] 无法解析 check_copy.py：{e}"]
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "check_copy":
+            args = node.args.posonlyargs + node.args.args
+            if not args:
+                return ["[FAIL] check_copy 无位置参数（预期首参为 `guide`）"]
+            first = args[0].arg
+            if first != "guide":
+                return [
+                    f"[FAIL] check_copy 首形参名为 `{first}`，预期 `guide`"
+                    "（v1.5.5 作用域收敛：首参只允许是引导话术片段）"
+                ]
+            return []
+    return ["[FAIL] check_copy.py 未找到 check_copy 函数定义"]
+
+
 def main() -> int:
     path = sys.argv[1] if len(sys.argv) > 1 else "src/guide_gate.py"
     try:
@@ -99,6 +128,14 @@ def main() -> int:
         issues.extend(q3_issues)
         print("\n[FAIL] Q-3 fidelity 断言:")
         for item in q3_issues:
+            print(f"  ✗ {item}")
+
+    # v1.5.5 追加：check_copy 作用域收敛断言（首形参 == guide）
+    scope_issues = assert_guide_scope_present()
+    if scope_issues:
+        issues.extend(scope_issues)
+        print("\n[FAIL] v1.5.5 作用域断言:")
+        for item in scope_issues:
             print(f"  ✗ {item}")
 
     if issues:

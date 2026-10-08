@@ -48,7 +48,7 @@
    "type": "str",
    "required": true,
    "default": null,
-   "desc": "7 值枚举（R5 枚举校验键）"
+   "desc": "13 值枚举（R5 枚举校验键）"
   },
   {
    "name": "subtype",
@@ -110,7 +110,12 @@
    "name": "lastSameCategoryMinutesAgo",
    "type": "int|null",
    "required": true,
-   "desc": "距上次同类触发分钟数（引擎 fail-closed 必检，2026-08-05 复审 C1 收口）"
+   "default": 999,
+   "range": [
+    0,
+    99999
+   ],
+   "desc": "距上次同类触发分钟数（引擎 fail-closed 必检）。首次出现该 category 传 999 或 ≥10 的真实分钟数；勿传 0（会误判刚触发冷却）或 null（引擎会 TypeError）——引擎已对 0/None 兜底归一为 999，但调用方仍按约定传安全值（v1.4.14 事故补强）"
   },
   {
    "name": "rejectionFlags",

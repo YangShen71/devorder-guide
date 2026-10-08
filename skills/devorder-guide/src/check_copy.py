@@ -5,7 +5,7 @@
 校验失败 → 调用方回退骨架（fail-closed）。
 
 用法：
-    python check_copy.py '<polished>' '<skeleton>'   →   JSON
+    python check_copy.py '<话术片段>' '<骨架原文>'   →   JSON
 """
 
 import json
@@ -25,6 +25,10 @@ ESCAPES = [
     "想好了再",
 ]
 MAX_GUIDE_HANZI = 80
+# 业务槽位占位符（2026-09-23 作用域收敛）：骨架模板中留给「业务内容」的占位符。
+# 若它们出现在待校验话术中 → 说明传入了骨架原文而非已填写的话术。
+# 注意：不收 `[服务名]` / `[经验标签]` / `[订单描述]`——出厂骨架自检用例含这些且期望通过。
+BUSINESS_SLOT_RE = re.compile(r"\[(?:核心回复|顾问核心回复)\]")
 
 
 def hanzi_count(text: str) -> int:
@@ -95,28 +99,41 @@ def _has_options(text: str) -> tuple[bool, str]:
     return True, ""
 
 
-def check_copy(polished: str, skeleton: str) -> dict:
-    """输入润色文本与骨架，输出 pass/fail + 违规项。
+def check_copy(guide: str, skeleton: str) -> dict:
+    """输入「引导话术片段」与骨架原文，输出 pass/fail + 违规项。
 
-    v0.5.15 新增：长度检查拆分为「核心引导句 ≤ 80 汉字 + 选项列表独立检测」；
-    中/强引导（骨架有入口）必须含显式选项（≥ 2 个编号 + 快捷触发词说明）。
+    ⚠️ 作用域（2026-09-23 收敛）：首参 `guide` **只允许是 Skill 自己生成的引导话术**
+    （卡片 / 选项块 / 邀请语 / 快捷触发词行）。**业务内容**（顾问核心回复、需求梳理、
+    品类范围说明、追问、结论）**不得传入**——它不受 80 字 / 退路 / 绝对化词约束，
+    由「呈现保真契约」单独保障。骨架里的业务占位符（`[核心回复]` / `[顾问核心回复]`）
+    须替换为真实内容后再输出。
+
+    长度检查：核心引导句 ≤ 80 汉字 + 选项列表独立计数；中/强引导（骨架有入口）必须含
+    显式选项（≥ 2 个编号 + 快捷触发词说明）。
     """
     issues = []
-    if any(w in polished for w in ABSOLUTES):
+    if any(w in guide for w in ABSOLUTES):
         issues.append("含绝对化词汇")
-    if not any(w in polished for w in ESCAPES):
+    if not any(w in guide for w in ESCAPES):
         issues.append("缺退路表达")
+
+    # 占位符守卫（2026-09-23）：业务槽位占位符原样出现 → 传的是骨架模板，不是已填写的话术
+    if BUSINESS_SLOT_RE.search(guide):
+        issues.append("含骨架业务占位符（[核心回复]/[顾问核心回复]）——请传已填写的实际话术")
 
     # v0.5.15：长度检查拆分为「核心引导句（≤ 80 汉字）」+「选项列表（独立结构）」
     # v0.5.18：分界扩展——编号列表行（1.）或表格头行（| 选项 |）或表格单元格（| 1.）之前为核心引导句
-    core_match = re.search(r"(?:^|\n)\s*(?:\|?\s*\*?\*?)(?:\d+[.\、\)]|选项|含义|动作)", polished)
-    core_guide = polished[: core_match.start()] if core_match else polished
+    core_match = re.search(r"(?:^|\n)\s*(?:\|?\s*\*?\*?)(?:\d+[.\、\)]|选项|含义|动作)", guide)
+    core_guide = guide[: core_match.start()] if core_match else guide
     n = hanzi_count(core_guide)
     if n > MAX_GUIDE_HANZI:
-        issues.append(f"超 {MAX_GUIDE_HANZI} 汉字（核心引导句 {n} 字，不含选项列表）")
+        issues.append(
+            f"超 {MAX_GUIDE_HANZI} 汉字（核心引导句 {n} 字，不含选项列表）"
+            "——请确认只传了话术片段（业务内容不在本校验作用域内）"
+        )
 
     skel_entry = _entry_type(skeleton)
-    pol_entry = _entry_type(polished)
+    pol_entry = _entry_type(guide)
     # 类型比对（2026-08-05 深度审查 M3：布尔比对无法区分发单/接单类型漂移；
     # M-4 收紧：骨架 both 时润色必须 both，不允许收敛为单一路径）
     if skel_entry == "none" and pol_entry != "none":
@@ -130,7 +147,7 @@ def check_copy(polished: str, skeleton: str) -> dict:
 
     # v0.5.15 新增：中/强引导（骨架有入口）必须含显式选项
     if skel_entry != "none":
-        has_opts, reason = _has_options(polished)
+        has_opts, reason = _has_options(guide)
         if not has_opts:
             issues.append(f"v0.5.15 缺显式选项：{reason}")
 
@@ -169,7 +186,7 @@ def main():
     if len(sys.argv) != 3:
         print(
             json.dumps(
-                {"error": "用法：python check_copy.py '<polished>' '<skeleton>'"},
+                {"error": "用法：python check_copy.py '<话术片段>' '<骨架原文>'"},
                 ensure_ascii=False,
             )
         )
